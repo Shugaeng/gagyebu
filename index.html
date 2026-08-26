@@ -163,6 +163,27 @@
   .period-select { border: 1px solid var(--line-strong); border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; background: var(--paper-light); color: var(--ink-navy); }
   .export-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--gold); background: var(--white); color: var(--gold); border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; }
   .export-btn:hover { background: var(--gold); color: var(--white); }
+  .print-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--ink-navy-soft); background: var(--white); color: var(--ink-navy-soft); border-radius: 8px; padding: 8px 12px; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer; }
+  .print-btn:hover { background: var(--ink-navy-soft); color: var(--white); }
+  .stats-actions { display: flex; gap: 8px; }
+  .print-header { display: none; }
+
+  @media print {
+    body { padding: 0; background: #FFFFFF; }
+    .sync-bar, .tabs, .header .month-nav, #viewLedger, .footer-note,
+    .modal-backdrop, .stats-toolbar .period-select, .print-btn, .export-btn { display: none !important; }
+    #viewStats.hidden { display: block !important; }
+    .print-header {
+      display: block !important;
+      margin-bottom: 16px;
+      border-bottom: 2px solid var(--ink-navy);
+      padding-bottom: 10px;
+    }
+    .print-header h1 { font-family: 'Noto Serif KR', serif; font-size: 20px; margin: 0 0 4px; color: var(--ink-navy); }
+    .print-header p { margin: 0; font-size: 11px; color: var(--text-muted); }
+    .chart-card, .stats-grid, .breakdown { break-inside: avoid; box-shadow: none; }
+    .book { max-width: 100%; }
+  }
 
   .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line-strong); border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; margin-bottom: 16px; }
   .stats-grid .cell { background: var(--white); padding: 12px 6px; text-align: center; }
@@ -276,7 +297,15 @@
         <option value="year">올해</option>
         <option value="all">전체 기간</option>
       </select>
-      <button class="export-btn" id="exportBtn" type="button">⬇ 엑셀로 내보내기</button>
+      <div class="stats-actions">
+        <button class="print-btn" id="printBtn" type="button">🖨 인쇄하기</button>
+        <button class="export-btn" id="exportBtn" type="button">⬇ 엑셀로 내보내기</button>
+      </div>
+    </div>
+
+    <div class="print-header" id="printHeader">
+      <h1>가계부 통계</h1>
+      <p id="printHeaderSub"></p>
     </div>
 
     <div class="stats-grid">
@@ -392,7 +421,7 @@
   ['monthLabel','sumIncome','sumExpense','sumBalance','addToggle','addForm','typeExpense','typeIncome','fDate','fCategory',
    'fSubcategory','fMemo','fAmount','formError','saveBtn','ledgerBody','breakdownBody','resetBtn','prevMonth','nextMonth',
    'monthNav','tabLedgerBtn','tabStatsBtn','viewLedger','viewStats','periodSelect','exportBtn','statIncome','statExpense',
-   'statNet','statRate','trendEmpty','categoryEmpty','categoryLegend','syncDot','syncText','openCodeModal',
+   'statNet','statRate','trendEmpty','categoryEmpty','categoryLegend','syncDot','syncText','openCodeModal','printBtn','printHeaderSub',
    'codeModalBackdrop','modeNew','modeExisting','sectionNew','sectionExisting','generatedCode','existingCodeInput',
    'codeError','confirmCodeBtn'
   ].forEach(function(id){ els[id] = document.getElementById(id); });
@@ -618,6 +647,12 @@
   }
   function monthKey(dateStr){ return dateStr.slice(0,7); }
   function monthLabel(key){ var p = key.split('-'); return p[0].slice(2)+'.'+p[1]; }
+  function periodLabelText(period){
+    if (period==='3m') return '최근 3개월';
+    if (period==='6m') return '최근 6개월';
+    if (period==='year') return '올해';
+    return '전체 기간';
+  }
 
   function renderStats(){
     var period = els.periodSelect.value;
@@ -718,6 +753,12 @@
   els.tabStatsBtn.addEventListener('click', function(){ switchView('stats'); });
   els.periodSelect.addEventListener('change', renderStats);
   els.exportBtn.addEventListener('click', exportExcel);
+  els.printBtn.addEventListener('click', function(){
+    var today = new Date();
+    var todayLabel = today.getFullYear()+'.'+String(today.getMonth()+1).padStart(2,'0')+'.'+String(today.getDate()).padStart(2,'0');
+    els.printHeaderSub.textContent = periodLabelText(els.periodSelect.value) + ' · 출력일 ' + todayLabel + (state.syncCode ? ' · 동기화 코드 ' + state.syncCode : '');
+    window.print();
+  });
 
   els.addToggle.addEventListener('click', function(){
     var willOpen = !els.addForm.classList.contains('open');
