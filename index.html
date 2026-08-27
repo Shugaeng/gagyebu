@@ -39,7 +39,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 .spinner { width: 40px; height: 40px; border: 4px solid #e2e8f0; border-top: 4px solid #6366f1; border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 /* 동기화 코드 모달 */
-.sync-modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 70; }
+.sync-modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 110; }
 .sync-modal-backdrop.hidden { display: none; }
 .sync-modal { background: #fff; border-radius: 20px; padding: 22px; max-width: 380px; width: 100%; }
 .sync-modal-tabs { display: flex; gap: 8px; margin: 14px 0; }
@@ -762,6 +762,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     }
 
     function openSyncModal() {
+        hideGlobalLoader();
         document.getElementById('syncModalBackdrop').classList.remove('hidden');
         document.getElementById('syncGeneratedCode').textContent = genSyncCode();
         switchSyncModalMode('new');

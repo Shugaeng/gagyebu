@@ -1,4 +1,4 @@
-var CACHE_NAME = 'couple-budget-cache-v1';
+var CACHE_NAME = 'couple-budget-cache-v2';
 var APP_SHELL = [
   './',
   './index.html',
