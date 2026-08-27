@@ -1,4 +1,4 @@
-var CACHE_NAME = 'gagyebu-cache-v2';
+var CACHE_NAME = 'couple-budget-cache-v1';
 var APP_SHELL = [
   './',
   './index.html',
@@ -10,9 +10,7 @@ var APP_SHELL = [
 self.addEventListener('install', function(event){
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(function(cache){
-      return cache.addAll(APP_SHELL);
-    })
+    caches.open(CACHE_NAME).then(function(cache){ return cache.addAll(APP_SHELL); })
   );
 });
 
@@ -28,11 +26,7 @@ self.addEventListener('activate', function(event){
 self.addEventListener('fetch', function(event){
   var req = event.request;
   if (req.method !== 'GET') return;
-
-  // Firebase/외부 API 호출은 캐시하지 않고 네트워크 우선(오프라인 큐잉은 Firestore SDK가 처리)
-  if (req.url.indexOf('firestore.googleapis.com') !== -1 || req.url.indexOf('googleapis.com') !== -1) {
-    return;
-  }
+  if (req.url.indexOf('firestore.googleapis.com') !== -1 || req.url.indexOf('googleapis.com') !== -1) return;
 
   event.respondWith(
     caches.match(req).then(function(cached){
