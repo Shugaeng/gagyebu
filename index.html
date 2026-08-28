@@ -455,7 +455,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                     <input type="text" id="stock-form-memo" placeholder="예: 분할 매수 / 목표가 도달 매도" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
                 </div>
                 <div class="flex gap-2">
-                    <button type="submit" id="stock-form-submit-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-2xs">매매일지 등록하기</button>
+                    <button type="submit" id="stock-form-submit-btn" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-2xs">매매일지 등록하기</button>
                     <button type="button" id="stock-form-cancel-btn" class="hidden px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium py-2.5 rounded-xl transition">취소</button>
                 </div>
             </form>
@@ -705,6 +705,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     let editingAssetId = null;
     let editingTransactionId = null;
     let activeFilter = 'all';
+    const PAGE_SIZE = 20;
+    const STOCK_MONTH_PAGE_SIZE = 3;
+    let txPageSize = PAGE_SIZE;
+    let assetHistoryPageSize = PAGE_SIZE;
+    let stockPageSize = PAGE_SIZE;
+    let stockMonthPageSize = STOCK_MONTH_PAGE_SIZE;
 
     let transactions = [];
     let assets = [];
@@ -1316,12 +1322,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         const btnStockItem = document.getElementById('btn-stock-item');
         btnStockMonthly.addEventListener('click', () => {
             stockGroupMode = 'monthly';
+            stockMonthPageSize = STOCK_MONTH_PAGE_SIZE;
             btnStockMonthly.className = "px-2.5 py-1 rounded-md bg-white text-slate-800 font-semibold shadow-2xs transition";
             btnStockItem.className = "px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition";
             renderStocks();
         });
         btnStockItem.addEventListener('click', () => {
             stockGroupMode = 'item';
+            stockPageSize = PAGE_SIZE;
             btnStockItem.className = "px-2.5 py-1 rounded-md bg-white text-slate-800 font-semibold shadow-2xs transition";
             btnStockMonthly.className = "px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition";
             renderStocks();
@@ -1348,10 +1356,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             else customInput.classList.add('hidden');
         });
 
-        document.getElementById('prev-month').addEventListener('click', () => { selectedDate.setMonth(selectedDate.getMonth() - 1); render(); });
-        document.getElementById('next-month').addEventListener('click', () => { selectedDate.setMonth(selectedDate.getMonth() + 1); render(); });
-        document.getElementById('asset-prev-month').addEventListener('click', () => { selectedDate.setMonth(selectedDate.getMonth() - 1); render(); });
-        document.getElementById('asset-next-month').addEventListener('click', () => { selectedDate.setMonth(selectedDate.getMonth() + 1); render(); });
+        document.getElementById('prev-month').addEventListener('click', () => { selectedDate.setMonth(selectedDate.getMonth() - 1); txPageSize = PAGE_SIZE; assetHistoryPageSize = PAGE_SIZE; render(); });
+        document.getElementById('next-month').addEventListener('click', () => { selectedDate.setMonth(selectedDate.getMonth() + 1); txPageSize = PAGE_SIZE; assetHistoryPageSize = PAGE_SIZE; render(); });
+        document.getElementById('asset-prev-month').addEventListener('click', () => { selectedDate.setMonth(selectedDate.getMonth() - 1); txPageSize = PAGE_SIZE; assetHistoryPageSize = PAGE_SIZE; render(); });
+        document.getElementById('asset-next-month').addEventListener('click', () => { selectedDate.setMonth(selectedDate.getMonth() + 1); txPageSize = PAGE_SIZE; assetHistoryPageSize = PAGE_SIZE; render(); });
         document.getElementById('dash-summary-prev').addEventListener('click', () => { summarySelectDate.setMonth(summarySelectDate.getMonth() - 1); renderDashboardSummaryCard(); });
         document.getElementById('dash-summary-next').addEventListener('click', () => { summarySelectDate.setMonth(summarySelectDate.getMonth() + 1); renderDashboardSummaryCard(); });
         document.getElementById('income-cum-prev').addEventListener('click', () => { incomeCumDate.setMonth(incomeCumDate.getMonth() - 1); renderIncomeCumulativeCard(); });
@@ -1531,6 +1539,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
     function setFilter(filterType, targetBtn) {
         activeFilter = filterType;
+        txPageSize = PAGE_SIZE;
         ['filter-all', 'filter-expense', 'filter-income'].forEach(id => {
             document.getElementById(id).className = "px-2.5 py-1 rounded-full hover:bg-slate-100 text-[11px] text-slate-500";
         });
@@ -1962,6 +1971,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('wife-bar').style.width = `${(wifeIncome / maxInc) * 100}%`;
     }
 
+    function appendLoadMoreButton(container, totalCount, visibleCount, onClick) {
+        if (visibleCount >= totalCount) return;
+        const remaining = totalCount - visibleCount;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'w-full mt-2 py-2.5 rounded-xl border border-dashed border-slate-200 text-[11px] font-medium text-slate-500 hover:bg-slate-50 transition';
+        btn.textContent = `더보기 (${remaining}건 더 있음)`;
+        btn.addEventListener('click', onClick);
+        container.appendChild(btn);
+    }
+
     function renderTransactionsList() {
         const listContainer = document.getElementById('transaction-list');
         listContainer.innerHTML = '';
@@ -1982,7 +2002,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             return;
         }
 
-        currentMonthItems.forEach(t => {
+        const visibleItems = currentMonthItems.slice(0, txPageSize);
+        visibleItems.forEach(t => {
             const isExpense = t.type === 'expense';
             const itemEl = document.createElement('div');
             itemEl.className = `py-2.5 flex items-center justify-between hover:bg-slate-50/80 px-1 rounded-lg transition ${editingTransactionId === t.id ? 'bg-amber-50/70 ring-1 ring-amber-200' : ''}`;
@@ -2010,6 +2031,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         listContainer.querySelectorAll('[data-delete-tx]').forEach(btn => btn.addEventListener('click', () => {
             showAppConfirm('이 거래 내역을 삭제하시겠습니까?', () => deleteTransaction(btn.dataset.deleteTx));
         }));
+        appendLoadMoreButton(listContainer, currentMonthItems.length, txPageSize, () => {
+            txPageSize += PAGE_SIZE;
+            renderTransactionsList();
+        });
     }
 
     function renderAssets() {
@@ -2075,7 +2100,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         if (monthlyAssetLogs.length === 0) {
             historyListContainer.innerHTML = `<div class="py-8 text-center text-slate-400 text-xs">해당 월에 추가되거나 기록된 자산 내역이 없습니다.</div>`;
         } else {
-            monthlyAssetLogs.forEach(log => {
+            const visibleLogs = monthlyAssetLogs.slice(0, assetHistoryPageSize);
+            visibleLogs.forEach(log => {
                 const isLiability = log.type === '대출/부채';
                 const badgeColor = ASSET_COLORS[log.type] || 'bg-slate-400';
                 const el = document.createElement('div');
@@ -2102,6 +2128,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             historyListContainer.querySelectorAll('[data-delete-asset-log]').forEach(btn => btn.addEventListener('click', () => {
                 showAppConfirm('이 자산 기록을 삭제하시겠습니까?', () => deleteAsset(btn.dataset.deleteAssetLog));
             }));
+            appendLoadMoreButton(historyListContainer, monthlyAssetLogs.length, assetHistoryPageSize, () => {
+                assetHistoryPageSize += PAGE_SIZE;
+                renderAssets();
+            });
         }
     }
 
@@ -2175,7 +2205,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             if (sortedKeys.length === 0) {
                 listContainer.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs">등록된 주식 매매일지가 없습니다.</div>`;
             } else {
-                sortedKeys.forEach(ym => {
+                const visibleKeys = sortedKeys.slice(0, stockMonthPageSize);
+                visibleKeys.forEach(ym => {
                     const items = groups[ym];
                     let monthBuySum = 0, monthSellSum = 0;
                     items.forEach(s => { if (s.type === '매수') monthBuySum += s.amount; else monthSellSum += s.amount; });
@@ -2204,6 +2235,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         listContainer.appendChild(el);
                     });
                 });
+                appendLoadMoreButton(listContainer, sortedKeys.length, stockMonthPageSize, () => {
+                    stockMonthPageSize += STOCK_MONTH_PAGE_SIZE;
+                    renderStocks();
+                });
             }
         } else {
             const itemGroups = {};
@@ -2218,7 +2253,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             if (itemNames.length === 0) {
                 listContainer.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs">등록된 주식 매매일지가 없습니다.</div>`;
             } else {
-                itemNames.forEach(itemName => {
+                const visibleNames = itemNames.slice(0, stockPageSize);
+                visibleNames.forEach(itemName => {
                     const info = itemGroups[itemName];
                     const netInvest = info.buySum - info.sellSum;
                     const card = document.createElement('div');
@@ -2230,6 +2266,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         </div>
                         <div class="text-right"><span class="text-xs font-extrabold text-slate-800 block">${netInvest >= 0 ? netInvest.toLocaleString() : 0}원</span><span class="text-[10px] text-slate-400">순투자금</span></div>`;
                     listContainer.appendChild(card);
+                });
+                appendLoadMoreButton(listContainer, itemNames.length, stockPageSize, () => {
+                    stockPageSize += PAGE_SIZE;
+                    renderStocks();
                 });
             }
         }
