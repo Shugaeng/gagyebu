@@ -125,9 +125,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 </div>
             </div>
             <div class="mt-4 pt-4 border-t border-indigo-500/30">
-                <div class="flex justify-between text-xs font-semibold mb-2">
+                <div class="flex justify-between items-center text-xs font-semibold mb-2">
                     <span class="text-indigo-100">자산 포트폴리오 배분</span>
-                    <span id="top-asset-category" class="text-indigo-200">-</span>
+                    <span class="flex items-center gap-1">
+                        <span class="text-[9px] font-bold text-amber-300 bg-amber-400/10 px-1.5 py-0.5 rounded-full">TOP 1위 자산</span>
+                        <span id="top-asset-category" class="text-indigo-200">-</span>
+                    </span>
                 </div>
                 <div id="portfolio-progress-bar" class="w-full h-3 bg-indigo-950/50 rounded-full overflow-hidden flex gap-0.5 p-0.5"></div>
                 <div id="portfolio-legend" class="grid grid-cols-2 gap-x-2 gap-y-1.5 mt-3 text-[11px] text-indigo-100"></div>
