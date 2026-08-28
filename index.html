@@ -759,7 +759,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         updateSyncBadge('connecting');
         var docRef = db.collection('couples_budgets').doc(code);
         var firstSnapshot = true;
-        syncUnsubscribe = docRef.onSnapshot(function (snap) {
+        // includeMetadataChanges: true 를 줘야 캐시→서버 전환처럼 "데이터는 그대로인데
+        // 연결 상태만 바뀌는" 경우에도 콜백이 다시 호출되어 배지가 자동으로 갱신된다.
+        syncUnsubscribe = docRef.onSnapshot({ includeMetadataChanges: true }, function (snap) {
             var fromCache = snap.metadata.fromCache;
             updateSyncBadge(fromCache ? 'offline' : 'online');
             var data = snap.data();
