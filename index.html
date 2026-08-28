@@ -558,6 +558,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     <div class="sync-modal">
         <h2 class="font-bold text-base text-slate-800">📱 기기 연결하기</h2>
         <p class="text-xs text-slate-500 leading-relaxed mt-1.5">같은 "동기화 코드"를 쓰는 모든 기기(부부 각자의 폰, PC)는 같은 가계부 데이터를 공유해요.</p>
+        <div id="syncCurrentCodeBox" class="hidden mt-3 bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex items-center justify-between">
+            <div>
+                <div class="text-[10px] text-emerald-600 font-medium">현재 연동된 코드</div>
+                <div class="font-mono font-bold text-lg text-emerald-700 tracking-widest" id="syncCurrentCodeText">------</div>
+            </div>
+            <button type="button" id="syncCopyCodeBtn" class="text-[11px] text-emerald-700 bg-white border border-emerald-200 px-2.5 py-1.5 rounded-lg hover:bg-emerald-100">복사</button>
+        </div>
+        <p class="text-[11px] text-slate-400 mt-3 mb-1">다른 코드로 바꾸거나 새 기기를 연결하려면 아래에서 선택하세요.</p>
         <div class="sync-modal-tabs">
             <button type="button" class="active" id="syncModeNew">새로 시작</button>
             <button type="button" id="syncModeExisting">기존 코드 입력</button>
@@ -712,7 +720,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         var text = document.getElementById('sync-status-text');
         if (!dot || !text) return;
         dot.className = 'sync-dot' + (status === 'online' ? '' : status === 'connecting' ? ' syncing' : ' offline');
-        if (status === 'online') text.textContent = '클라우드 연동 완료 · ' + (syncCode || '');
+        if (status === 'online') text.textContent = '클라우드 연동 완료';
         else if (status === 'connecting') text.textContent = '클라우드 연동 확인 중...';
         else if (status === 'local') text.textContent = '이 기기에만 저장 중 (동기화 코드 없음)';
         else text.textContent = '오프라인 · 이 기기에 임시 저장됨';
@@ -794,6 +802,13 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         hideGlobalLoader();
         document.getElementById('syncModalBackdrop').classList.remove('hidden');
         document.getElementById('syncGeneratedCode').textContent = genSyncCode();
+        const currentBox = document.getElementById('syncCurrentCodeBox');
+        if (syncCode) {
+            currentBox.classList.remove('hidden');
+            document.getElementById('syncCurrentCodeText').textContent = syncCode;
+        } else {
+            currentBox.classList.add('hidden');
+        }
         switchSyncModalMode('new');
     }
     function closeSyncModal() { document.getElementById('syncModalBackdrop').classList.add('hidden'); }
@@ -1132,6 +1147,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     function setupSyncEventListeners() {
         document.getElementById('open-sync-modal').addEventListener('click', openSyncModal);
         document.getElementById('header-user-toggle').addEventListener('click', toggleCurrentUser);
+        document.getElementById('syncCopyCodeBtn').addEventListener('click', function () {
+            const code = document.getElementById('syncCurrentCodeText').textContent;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(code).then(function () { showAppToast('코드를 복사했어요.'); });
+            } else {
+                showAppToast('코드: ' + code);
+            }
+        });
         document.getElementById('syncModeNew').addEventListener('click', function () { switchSyncModalMode('new'); });
         document.getElementById('syncModeExisting').addEventListener('click', function () { switchSyncModalMode('existing'); });
         document.getElementById('syncExistingCodeInput').addEventListener('input', function (e) {
