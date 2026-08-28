@@ -496,8 +496,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         </div>
 
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <h3 class="text-xs font-bold text-slate-800 mb-3 flex items-center space-x-1.5"><i data-lucide="pie-chart" class="w-4 h-4 text-indigo-500"></i><span>종목별 투자 비중 (매수 기준)</span></h3>
+            <div class="flex items-center justify-between mb-1">
+                <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="pie-chart" class="w-4 h-4 text-indigo-500"></i><span>종목별 보유 비중</span></h3>
+                <div class="flex items-center gap-1">
+                    <button id="stock-weight-prev" class="p-1 hover:bg-slate-100 rounded-full text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="m15 18-6-6 6-6"/></svg></button>
+                    <span id="stock-weight-month-display" class="text-[11px] font-semibold text-slate-500 min-w-[74px] text-center">-</span>
+                    <button id="stock-weight-next" class="p-1 hover:bg-slate-100 rounded-full text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="m9 18 6-6-6-6"/></svg></button>
+                </div>
+            </div>
+            <p class="text-[10px] text-slate-400 mb-2">선택한 달 말일까지 누적 매수-매도 기준 보유 비중이에요</p>
             <div class="relative flex items-center justify-center min-h-[200px]"><canvas id="stockWeightChart"></canvas></div>
+            <div id="stockWeightEmpty" class="hidden text-center text-slate-400 text-xs py-8">해당 시점에 보유 중인 종목이 없어요.</div>
         </div>
 
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
@@ -566,6 +575,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             <div class="pt-1">
                 <button id="clear-data-btn" class="text-xs text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3.5 py-1.5 rounded-lg font-medium transition">초기화 및 데모 데이터 재설정</button>
             </div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-dashed border-amber-300 space-y-2">
+            <h3 class="text-xs font-bold text-amber-700 flex items-center space-x-1.5"><i data-lucide="flask-conical" class="w-4 h-4"></i><span>🧪 테스트용 (임시)</span></h3>
+            <p class="text-[11px] text-slate-400 leading-relaxed">이번 달까지 포함해서 매매일지 → 자산기록 롤오버를 강제로 미리 실행해봐요. 실제 서비스에서는 다음 달이 돼야 자동 실행되지만, 지금 바로 결과를 확인하고 싶을 때 눌러보세요.</p>
+            <button id="test-rollover-btn" class="w-full text-xs text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-lg font-medium transition">지금 롤오버 강제 실행해보기</button>
         </div>
     </section>
 
@@ -736,6 +751,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     let trendsYear = new Date().getFullYear();
     let stockGroupMode = 'monthly';
     let stockAccountFilter = 'all';
+    let stockWeightMonth = new Date();
     let editingStockId = null;
     let editingAssetId = null;
     let editingTransactionId = null;
@@ -1173,7 +1189,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         return { qty, avgCost };
     }
 
-    function runStockRollover() {
+    function runStockRollover(includeCurrentMonth) {
         if (!stocks.length) return;
         const now = new Date();
         const currentYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
@@ -1181,9 +1197,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         const tradeMonths = new Set();
         stocks.forEach(s => { if (s.date) tradeMonths.add(s.date.slice(0, 7)); });
         const candidateMonths = Array.from(tradeMonths)
-            .filter(ym => ym < currentYM && stockRolloverProcessedMonths.indexOf(ym) === -1)
+            .filter(ym => (includeCurrentMonth ? ym <= currentYM : ym < currentYM) && stockRolloverProcessedMonths.indexOf(ym) === -1)
             .sort();
-        if (candidateMonths.length === 0) return;
+        if (candidateMonths.length === 0) {
+            if (includeCurrentMonth) showAppToast('반영할 새 거래 내역이 없어요 (이미 처리됐거나 매매일지가 비어있어요).');
+            return;
+        }
 
         const accountItemPairs = new Set();
         stocks.forEach(s => accountItemPairs.add((s.account || '연금저축') + '||' + s.item));
@@ -1482,6 +1501,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             stockPageSize = PAGE_SIZE;
             renderStocks();
         });
+        document.getElementById('stock-weight-prev').addEventListener('click', () => {
+            stockWeightMonth.setMonth(stockWeightMonth.getMonth() - 1);
+            renderStockWeightChart();
+        });
+        document.getElementById('stock-weight-next').addEventListener('click', () => {
+            stockWeightMonth.setMonth(stockWeightMonth.getMonth() + 1);
+            renderStockWeightChart();
+        });
 
         document.getElementById('stock-item-form').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -1671,6 +1698,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 loadDummyData();
                 render();
             }, '초기화');
+        });
+
+        document.getElementById('test-rollover-btn').addEventListener('click', () => {
+            runStockRollover(true);
+            render();
         });
 
         document.getElementById('export-data-btn').addEventListener('click', exportBackup);
@@ -2354,8 +2386,13 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     }
 
     function renderStockWeightChart() {
+        const y = stockWeightMonth.getFullYear();
+        const m = stockWeightMonth.getMonth() + 1;
+        document.getElementById('stock-weight-month-display').textContent = `${y}년 ${m}월`;
+        const cutoffStr = `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+
         if (!ChartAvailable()) return;
-        const scopedStocks = getFilteredStocksByAccount();
+        const scopedStocks = getFilteredStocksByAccount().filter(s => s.date && s.date <= cutoffStr);
         const stockSums = {};
         scopedStocks.forEach(s => {
             if (s.type === '매수') stockSums[s.item] = (stockSums[s.item] || 0) + s.amount;
@@ -2364,10 +2401,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         const labels = [], data = [];
         Object.keys(stockSums).forEach(item => { if (stockSums[item] > 0) { labels.push(item); data.push(stockSums[item]); } });
 
-        const ctx = document.getElementById('stockWeightChart').getContext('2d');
+        const canvas = document.getElementById('stockWeightChart');
+        const emptyEl = document.getElementById('stockWeightEmpty');
         if (stockWeightChartInstance) stockWeightChartInstance.destroy();
-        if (labels.length === 0) return;
-        stockWeightChartInstance = new Chart(ctx, {
+        if (labels.length === 0) {
+            canvas.style.display = 'none';
+            emptyEl.classList.remove('hidden');
+            return;
+        }
+        canvas.style.display = 'block';
+        emptyEl.classList.add('hidden');
+        stockWeightChartInstance = new Chart(canvas.getContext('2d'), {
             type: 'doughnut',
             data: { labels, datasets: [{ data, backgroundColor: ['#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'], borderWidth: 2, borderColor: '#ffffff' }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }, cutout: '65%' },
