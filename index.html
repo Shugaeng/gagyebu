@@ -2001,7 +2001,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             }
         } else {
             for (let q = 1; q <= 4; q++) {
-                labels.push(`Q${q}`);
+                labels.push(`${q}분기`);
                 const endMonth = q * 3;
                 const isFuture = trendsYear > currentYear || (trendsYear === currentYear && endMonth > currentMonth);
                 if (isFuture) {
