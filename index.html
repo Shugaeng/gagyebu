@@ -409,8 +409,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
     <!-- TAB 4: 주식매매일지 -->
     <section id="tab-stocks" class="tab-content hidden space-y-4">
+        <div class="bg-white rounded-2xl p-3.5 shadow-sm border border-slate-100 flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5"><i data-lucide="layers" class="w-4 h-4 text-indigo-500"></i>계좌 보기</span>
+            <select id="stock-account-filter" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="all">전체 계좌</option>
+                <option value="연금저축">연금저축</option>
+                <option value="ISA">ISA</option>
+                <option value="IRP">IRP</option>
+            </select>
+        </div>
         <div class="bg-slate-900 text-white rounded-3xl p-5 shadow-sm">
-            <span class="text-[11px] text-slate-400 font-medium">누적 매매 현황 (전체 기간)</span>
+            <span class="text-[11px] text-slate-400 font-medium">누적 매매 현황 (<span id="stock-total-scope">전체 계좌</span>)</span>
             <div id="stock-total-net" class="text-2xl font-extrabold mt-1 text-emerald-400">0원</div>
             <div class="grid grid-cols-2 gap-4 mt-4 pt-3 border-t border-slate-800 text-[11px]">
                 <div><span class="text-slate-400 block mb-0.5">누적 매수 총액</span><span id="stock-total-buy" class="text-xs font-semibold text-indigo-300">0원</span></div>
@@ -432,6 +441,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         </div>
                     </div>
                     <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">계좌</label>
+                        <select id="stock-form-account" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                            <option value="연금저축">연금저축</option>
+                            <option value="ISA">ISA</option>
+                            <option value="IRP">IRP</option>
+                        </select>
+                    </div>
+                    <div class="col-span-2">
                         <label class="block text-[11px] font-semibold text-slate-400 mb-1">종목 선택</label>
                         <select id="stock-form-item" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"></select>
                     </div>
@@ -705,6 +722,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     let chartPeriodMode = 'monthly';
     let trendsYear = new Date().getFullYear();
     let stockGroupMode = 'monthly';
+    let stockAccountFilter = 'all';
     let editingStockId = null;
     let editingAssetId = null;
     let editingTransactionId = null;
@@ -755,6 +773,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         transactions = Array.isArray(data.transactions) ? data.transactions : [];
         assets = Array.isArray(data.assets) ? data.assets : [];
         stocks = Array.isArray(data.stocks) ? data.stocks : [];
+        stocks.forEach(s => { if (!s.account) s.account = '연금저축'; }); // 계좌 구분 도입 이전 기존 데이터 마이그레이션
         if (Array.isArray(data.stockItems) && data.stockItems.length) stockItems = data.stockItems;
         if (data.targetGoalAmount) targetGoalAmount = data.targetGoalAmount;
         if (data.targetGoalDate) targetGoalDate = data.targetGoalDate;
@@ -904,9 +923,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             { id: 'a1', type: '부동산', name: '아파트 매매가', amount: 250000000, principal: 200000000, date: `${year}-${month}-01` }
         ];
         stocks = [
-            { id: 's1', type: '매수', item: '테슬라', date: `${year}-${month}-10`, amount: 5000000, unitPrice: 250000, qty: 20, memo: '조정시 분할매수' },
-            { id: 's2', type: '매수', item: '애플', date: `${year}-${month}-12`, amount: 3000000, unitPrice: 200000, qty: 15, memo: '장기 보유 목적' },
-            { id: 's3', type: '매수', item: '엔비디아', date: `${year}-${month}-14`, amount: 4000000, unitPrice: 400000, qty: 10, memo: 'AI 반도체 투자' }
+            { id: 's1', type: '매수', item: '테슬라', date: `${year}-${month}-10`, amount: 5000000, unitPrice: 250000, qty: 20, memo: '조정시 분할매수', account: '연금저축' },
+            { id: 's2', type: '매수', item: '애플', date: `${year}-${month}-12`, amount: 3000000, unitPrice: 200000, qty: 15, memo: '장기 보유 목적', account: '연금저축' },
+            { id: 's3', type: '매수', item: '엔비디아', date: `${year}-${month}-14`, amount: 4000000, unitPrice: 400000, qty: 10, memo: 'AI 반도체 투자', account: '연금저축' }
         ];
         saveAll();
     }
@@ -966,9 +985,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             assetRows.push([a.type, a.name, a.date || '', a.amount, a.principal != null ? a.principal : a.amount]);
         });
 
-        const stockRows = [['구분', '종목', '일자', '단가', '수량', '총금액', '메모']];
+        const stockRows = [['구분', '계좌', '종목', '일자', '단가', '수량', '총금액', '메모']];
         stocks.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(s => {
-            stockRows.push([s.type, s.item, s.date || '', s.unitPrice != null ? s.unitPrice : '', s.qty != null ? s.qty : '', s.amount, s.memo || '']);
+            stockRows.push([s.type, s.account || '연금저축', s.item, s.date || '', s.unitPrice != null ? s.unitPrice : '', s.qty != null ? s.qty : '', s.amount, s.memo || '']);
         });
 
         const settingRows = [
@@ -982,7 +1001,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         const wb = XLSX.utils.book_new();
         const wsTx = XLSX.utils.aoa_to_sheet(txRows); wsTx['!cols'] = [{ wch: 11 }, { wch: 6 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 8 }];
         const wsAsset = XLSX.utils.aoa_to_sheet(assetRows); wsAsset['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 11 }, { wch: 14 }, { wch: 14 }];
-        const wsStock = XLSX.utils.aoa_to_sheet(stockRows); wsStock['!cols'] = [{ wch: 6 }, { wch: 14 }, { wch: 11 }, { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 20 }];
+        const wsStock = XLSX.utils.aoa_to_sheet(stockRows); wsStock['!cols'] = [{ wch: 6 }, { wch: 8 }, { wch: 14 }, { wch: 11 }, { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 20 }];
         const wsSetting = XLSX.utils.aoa_to_sheet(settingRows); wsSetting['!cols'] = [{ wch: 18 }, { wch: 30 }];
         XLSX.utils.book_append_sheet(wb, wsTx, '거래내역');
         XLSX.utils.book_append_sheet(wb, wsAsset, '자산기록');
@@ -1050,15 +1069,18 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
                     const stockRows = sheetToRows('매매일지');
                     if (stockRows) {
-                        const existingSigs = new Set(stocks.map(s => [s.type, s.item, s.date || '', s.unitPrice != null ? s.unitPrice : '', s.qty != null ? s.qty : '', s.amount, s.memo || ''].join('||')));
+                        const stockHeader = XLSX.utils.sheet_to_json(wb.Sheets['매매일지'], { header: 1, defval: '' })[0] || [];
+                        const hasAccountCol = stockHeader[1] === '계좌';
+                        const existingSigs = new Set(stocks.map(s => [s.type, s.account || '연금저축', s.item, s.date || '', s.unitPrice != null ? s.unitPrice : '', s.qty != null ? s.qty : '', s.amount, s.memo || ''].join('||')));
                         const base = Date.now() + 200000;
                         let idx = 0;
                         stockRows.forEach(r => {
-                            const unitPrice = r[3] !== '' ? Number(r[3]) : 0;
-                            const qty = r[4] !== '' ? Number(r[4]) : 0;
-                            const amount = r[5] !== '' && r[5] != null ? Number(r[5]) : Math.round(unitPrice * qty);
-                            const item = { type: String(r[0] || '매수'), item: String(r[1] || ''), date: String(r[2] || ''), unitPrice, qty, amount, memo: String(r[6] || '-') };
-                            const sig = [item.type, item.item, item.date, item.unitPrice, item.qty, item.amount, item.memo].join('||');
+                            const c = hasAccountCol ? r : [r[0], '연금저축', r[1], r[2], r[3], r[4], r[5], r[6]]; // 구계좌 없는 구버전 형식 호환
+                            const unitPrice = c[4] !== '' ? Number(c[4]) : 0;
+                            const qty = c[5] !== '' ? Number(c[5]) : 0;
+                            const amount = c[6] !== '' && c[6] != null ? Number(c[6]) : Math.round(unitPrice * qty);
+                            const item = { type: String(c[0] || '매수'), account: String(c[1] || '연금저축'), item: String(c[2] || ''), date: String(c[3] || ''), unitPrice, qty, amount, memo: String(c[7] || '-') };
+                            const sig = [item.type, item.account, item.item, item.date, item.unitPrice, item.qty, item.amount, item.memo].join('||');
                             if (existingSigs.has(sig)) { skippedCount++; return; }
                             existingSigs.add(sig);
                             stocks.push(Object.assign({ id: String(base + idx) }, item));
@@ -1338,6 +1360,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             btnStockMonthly.className = "px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition";
             renderStocks();
         });
+        document.getElementById('stock-account-filter').addEventListener('change', (e) => {
+            stockAccountFilter = e.target.value;
+            stockMonthPageSize = STOCK_MONTH_PAGE_SIZE;
+            stockPageSize = PAGE_SIZE;
+            renderStocks();
+        });
 
         document.getElementById('stock-item-form').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -1484,6 +1512,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('stock-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const item = document.getElementById('stock-form-item').value;
+            const account = document.getElementById('stock-form-account').value;
             const date = document.getElementById('stock-form-date').value;
             const unitPrice = parseInt(document.getElementById('stock-form-price').value, 10);
             const qty = parseFloat(document.getElementById('stock-form-qty').value);
@@ -1493,12 +1522,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             if (editingStockId) {
                 const target = stocks.find(s => s.id === editingStockId);
                 if (target) {
-                    target.type = stockTradeType; target.item = item; target.date = date;
+                    target.type = stockTradeType; target.item = item; target.account = account; target.date = date;
                     target.amount = amount; target.unitPrice = unitPrice; target.qty = qty; target.memo = memo;
                 }
                 exitStockEditMode();
             } else {
-                stocks.push({ id: Date.now().toString(), type: stockTradeType, item, date, amount, unitPrice, qty, memo });
+                stocks.push({ id: Date.now().toString(), type: stockTradeType, item, account, date, amount, unitPrice, qty, memo });
             }
             saveAll();
             render(); // 매매일지 등록/수정은 자산탭/대시보드에도 영향을 주므로 전체 재렌더링
@@ -1722,6 +1751,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         }
 
         document.getElementById('stock-form-item').value = target.item;
+        document.getElementById('stock-form-account').value = target.account || '연금저축';
         document.getElementById('stock-form-date').value = target.date;
         document.getElementById('stock-form-price').value = target.unitPrice != null ? target.unitPrice : (target.qty ? Math.round(target.amount / target.qty) : target.amount);
         document.getElementById('stock-form-qty').value = target.qty;
@@ -1743,6 +1773,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('stock-form-price').value = '';
         document.getElementById('stock-form-qty').value = '';
         document.getElementById('stock-form-memo').value = '';
+        document.getElementById('stock-form-account').value = '연금저축';
         setDefaultDate();
         updateStockFormTotalPreview();
     }
@@ -2194,10 +2225,16 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         }
     };
 
+    function getFilteredStocksByAccount() {
+        if (stockAccountFilter === 'all') return stocks;
+        return stocks.filter(s => (s.account || '연금저축') === stockAccountFilter);
+    }
+
     function renderStockWeightChart() {
         if (!ChartAvailable()) return;
+        const scopedStocks = getFilteredStocksByAccount();
         const stockSums = {};
-        stocks.forEach(s => {
+        scopedStocks.forEach(s => {
             if (s.type === '매수') stockSums[s.item] = (stockSums[s.item] || 0) + s.amount;
             else if (s.type === '매도') stockSums[s.item] = Math.max(0, (stockSums[s.item] || 0) - s.amount);
         });
@@ -2221,17 +2258,20 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         listContainer.innerHTML = '';
         itemModeHint.classList.toggle('hidden', stockGroupMode !== 'item');
 
+        const scopedStocks = getFilteredStocksByAccount();
+        document.getElementById('stock-total-scope').textContent = stockAccountFilter === 'all' ? '전체 계좌' : stockAccountFilter;
+
         let totalBuy = 0, totalSell = 0;
-        stocks.forEach(s => { if (s.type === '매수') totalBuy += s.amount; else if (s.type === '매도') totalSell += s.amount; });
+        scopedStocks.forEach(s => { if (s.type === '매수') totalBuy += s.amount; else if (s.type === '매도') totalSell += s.amount; });
         document.getElementById('stock-total-buy').textContent = `${totalBuy.toLocaleString()}원`;
         document.getElementById('stock-total-sell').textContent = `${totalSell.toLocaleString()}원`;
         document.getElementById('stock-total-net').textContent = `${(totalBuy - totalSell).toLocaleString()}원`;
 
         if (stockGroupMode === 'monthly') {
             const groups = {};
-            stocks.forEach(s => { const ym = s.date ? s.date.slice(0, 7) : '기타'; if (!groups[ym]) groups[ym] = []; groups[ym].push(s); });
+            scopedStocks.forEach(s => { const ym = s.date ? s.date.slice(0, 7) : '기타'; if (!groups[ym]) groups[ym] = []; groups[ym].push(s); });
             const sortedKeys = Object.keys(groups).sort().reverse();
-            document.getElementById('stock-count').textContent = `총 ${stocks.length}건`;
+            document.getElementById('stock-count').textContent = `총 ${scopedStocks.length}건`;
 
             if (sortedKeys.length === 0) {
                 listContainer.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs">등록된 주식 매매일지가 없습니다.</div>`;
@@ -2254,7 +2294,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                             <div class="flex items-center space-x-2.5">
                                 <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${isBuy ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}">${s.type}</div>
                                 <div>
-                                    <div class="flex items-center space-x-1.5"><span class="font-bold text-slate-800">${s.item}</span><span class="text-[10px] text-slate-500">${s.qty}주 × ${unitPrice.toLocaleString()}원</span></div>
+                                    <div class="flex items-center space-x-1.5"><span class="font-bold text-slate-800">${s.item}</span><span class="text-[10px] text-slate-500">${s.qty}주 × ${unitPrice.toLocaleString()}원</span><span class="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded font-semibold">${s.account || '연금저축'}</span></div>
                                     <div class="text-[10px] text-slate-400 mt-0.5">${s.date} · ${s.memo}</div>
                                 </div>
                             </div>
@@ -2273,7 +2313,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             }
         } else {
             const itemGroups = {};
-            const chronological = stocks.slice().sort((a, b) => {
+            const chronological = scopedStocks.slice().sort((a, b) => {
                 const da = a.date || '', db = b.date || '';
                 if (da !== db) return da < db ? -1 : 1;
                 return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
