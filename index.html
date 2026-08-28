@@ -223,6 +223,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 <div class="text-[11px] text-rose-700 font-medium mb-1">이번 달 총지출</div>
                 <div id="tx-tab-expense" class="text-base font-bold text-rose-500">0원</div>
             </div>
+            <div class="col-span-2 bg-indigo-50/60 rounded-2xl p-3.5 border border-indigo-100">
+                <div class="text-[11px] text-indigo-700 font-medium mb-1">이번 달 저축가능액</div>
+                <div id="tx-tab-savings" class="text-base font-bold text-indigo-600">0원</div>
+            </div>
         </div>
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
             <h2 class="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
@@ -1990,6 +1994,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         allMonthItems.forEach(t => { if (t.type === 'income') monthIncome += t.amount; else if (t.type === 'expense') monthExpense += t.amount; });
         document.getElementById('tx-tab-income').textContent = `${monthIncome.toLocaleString()}원`;
         document.getElementById('tx-tab-expense').textContent = `${monthExpense.toLocaleString()}원`;
+        const savings = monthIncome - monthExpense;
+        const savingsEl = document.getElementById('tx-tab-savings');
+        savingsEl.textContent = `${savings >= 0 ? '' : '-'}${Math.abs(savings).toLocaleString()}원`;
+        savingsEl.classList.remove('text-indigo-600', 'text-rose-500');
+        savingsEl.classList.add(savings >= 0 ? 'text-indigo-600' : 'text-rose-500');
 
         let currentMonthItems = allMonthItems;
         if (activeFilter === 'expense') currentMonthItems = currentMonthItems.filter(t => t.type === 'expense');
