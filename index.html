@@ -405,6 +405,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
     <!-- TAB 4: 주식매매일지 -->
     <section id="tab-stocks" class="tab-content hidden space-y-4">
+        <div class="bg-slate-900 text-white rounded-3xl p-5 shadow-sm">
+            <span class="text-[11px] text-slate-400 font-medium">누적 매매 현황 (전체 기간)</span>
+            <div id="stock-total-net" class="text-2xl font-extrabold mt-1 text-emerald-400">0원</div>
+            <div class="grid grid-cols-2 gap-4 mt-4 pt-3 border-t border-slate-800 text-[11px]">
+                <div><span class="text-slate-400 block mb-0.5">누적 매수 총액</span><span id="stock-total-buy" class="text-xs font-semibold text-indigo-300">0원</span></div>
+                <div><span class="text-slate-400 block mb-0.5">누적 매도 총액</span><span id="stock-total-sell" class="text-xs font-semibold text-rose-400">0원</span></div>
+            </div>
+        </div>
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
             <h2 class="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
                 <span class="flex items-center space-x-1.5"><i data-lucide="trending-up" class="w-4 h-4 text-indigo-500"></i><span>주식 매매일지 작성</span></span>
@@ -632,7 +640,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         toastTimer = setTimeout(() => toast.classList.add('hidden'), 2200);
     }
 
-    function showAppConfirm(message, onConfirm) {
+    function showAppConfirm(message, onConfirm, okLabel) {
         const overlay = document.getElementById('app-confirm-overlay');
         const msgEl = document.getElementById('app-confirm-message');
         const okBtn = document.getElementById('app-confirm-ok');
@@ -640,6 +648,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         if (!overlay) { onConfirm(); return; } // 모달 요소가 없으면 안전하게 즉시 실행
 
         msgEl.textContent = message;
+        okBtn.textContent = okLabel || '삭제';
         overlay.classList.remove('hidden');
 
         const cleanup = () => {
@@ -759,9 +768,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         updateSyncBadge('connecting');
         var docRef = db.collection('couples_budgets').doc(code);
         var firstSnapshot = true;
-        // includeMetadataChanges: true 를 줘야 캐시→서버 전환처럼 "데이터는 그대로인데
-        // 연결 상태만 바뀌는" 경우에도 콜백이 다시 호출되어 배지가 자동으로 갱신된다.
-        syncUnsubscribe = docRef.onSnapshot({ includeMetadataChanges: true }, function (snap) {
+        syncUnsubscribe = docRef.onSnapshot(function (snap) {
             var fromCache = snap.metadata.fromCache;
             updateSyncBadge(fromCache ? 'offline' : 'online');
             var data = snap.data();
@@ -1075,7 +1082,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 }
             };
             reader.readAsArrayBuffer(file);
-        });
+        }, '가져오기');
     }
 
     // ---------- 자산 스냅샷 (중복 합산 방지) ----------
@@ -1505,7 +1512,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             showAppConfirm("모든 데이터를 초기 설정으로 되돌리시겠습니까?", () => {
                 loadDummyData();
                 render();
-            });
+            }, '초기화');
         });
 
         document.getElementById('export-data-btn').addEventListener('click', exportBackup);
@@ -2152,6 +2159,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         const itemModeHint = document.getElementById('stock-item-mode-hint');
         listContainer.innerHTML = '';
         itemModeHint.classList.toggle('hidden', stockGroupMode !== 'item');
+
+        let totalBuy = 0, totalSell = 0;
+        stocks.forEach(s => { if (s.type === '매수') totalBuy += s.amount; else if (s.type === '매도') totalSell += s.amount; });
+        document.getElementById('stock-total-buy').textContent = `${totalBuy.toLocaleString()}원`;
+        document.getElementById('stock-total-sell').textContent = `${totalSell.toLocaleString()}원`;
+        document.getElementById('stock-total-net').textContent = `${(totalBuy - totalSell).toLocaleString()}원`;
 
         if (stockGroupMode === 'monthly') {
             const groups = {};
