@@ -1912,17 +1912,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('income-cum-month-display').textContent = `${y}년 ${m}월까지`;
 
         const cutoff = `${y}-${String(m).padStart(2, '0')}`;
-        let totalIncome = 0, husbandIncome = 0;
+        let husbandIncome = 0, wifeIncome = 0;
         transactions.forEach(t => {
             if (t.type !== 'income') return;
             if (!t.date || t.date.slice(0, 7) > cutoff) return;
-            totalIncome += t.amount;
             if (t.payer === '슈') husbandIncome += t.amount;
+            else if (t.payer === '깽') wifeIncome += t.amount;
+            // payer가 '공동'인 수입은 특정 개인에게 귀속되지 않으므로 이 카드 합산에서 제외
         });
-        const wifeIncome = totalIncome - husbandIncome;
         document.getElementById('husband-spent-text').textContent = `${husbandIncome.toLocaleString()}원`;
         document.getElementById('wife-spent-text').textContent = `${wifeIncome.toLocaleString()}원`;
-        const maxInc = totalIncome || 1;
+        const maxInc = Math.max(husbandIncome + wifeIncome, 1);
         document.getElementById('husband-bar').style.width = `${(husbandIncome / maxInc) * 100}%`;
         document.getElementById('wife-bar').style.width = `${(wifeIncome / maxInc) * 100}%`;
     }
