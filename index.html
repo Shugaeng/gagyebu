@@ -576,12 +576,6 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 <button id="clear-data-btn" class="text-xs text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3.5 py-1.5 rounded-lg font-medium transition">초기화 및 데모 데이터 재설정</button>
             </div>
         </div>
-
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-dashed border-amber-300 space-y-2">
-            <h3 class="text-xs font-bold text-amber-700 flex items-center space-x-1.5"><i data-lucide="flask-conical" class="w-4 h-4"></i><span>🧪 테스트용 (임시)</span></h3>
-            <p class="text-[11px] text-slate-400 leading-relaxed">이번 달까지 포함해서 매매일지 → 자산기록 롤오버를 강제로 미리 실행해봐요. 실제 서비스에서는 다음 달이 돼야 자동 실행되지만, 지금 바로 결과를 확인하고 싶을 때 눌러보세요.</p>
-            <button id="test-rollover-btn" class="w-full text-xs text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-lg font-medium transition">지금 롤오버 강제 실행해보기</button>
-        </div>
     </section>
 
 </main>
@@ -1698,11 +1692,6 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 loadDummyData();
                 render();
             }, '초기화');
-        });
-
-        document.getElementById('test-rollover-btn').addEventListener('click', () => {
-            runStockRollover(true);
-            render();
         });
 
         document.getElementById('export-data-btn').addEventListener('click', exportBackup);
