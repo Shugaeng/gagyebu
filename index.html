@@ -11,6 +11,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; background-color:#f8fafc; }
@@ -190,14 +191,21 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         </div>
 
         <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 space-y-3">
-            <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5"><i data-lucide="users" class="w-4 h-4 text-emerald-500"></i><span>부부 수입 기여도</span></h3>
+            <div class="flex items-center justify-between">
+                <h3 class="text-xs font-bold text-slate-700 flex items-center gap-1.5"><i data-lucide="users" class="w-4 h-4 text-emerald-500"></i><span>부부 수입 누적</span></h3>
+                <div class="flex items-center gap-1">
+                    <button id="income-cum-prev" class="p-1 hover:bg-slate-100 rounded-full text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="m15 18-6-6 6-6"/></svg></button>
+                    <span id="income-cum-month-display" class="text-[11px] font-semibold text-slate-500 min-w-[74px] text-center">-</span>
+                    <button id="income-cum-next" class="p-1 hover:bg-slate-100 rounded-full text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="m9 18 6-6-6-6"/></svg></button>
+                </div>
+            </div>
             <div class="space-y-3 pt-1">
                 <div>
-                    <div class="flex justify-between text-xs font-medium text-slate-600 mb-1"><span>슈 수입</span><span id="husband-spent-text">0원</span></div>
+                    <div class="flex justify-between text-xs font-medium text-slate-600 mb-1"><span>슈 누적 수입</span><span id="husband-spent-text">0원</span></div>
                     <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div id="husband-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-500" style="width:0%"></div></div>
                 </div>
                 <div>
-                    <div class="flex justify-between text-xs font-medium text-slate-600 mb-1"><span>깽 수입</span><span id="wife-spent-text">0원</span></div>
+                    <div class="flex justify-between text-xs font-medium text-slate-600 mb-1"><span>깽 누적 수입</span><span id="wife-spent-text">0원</span></div>
                     <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div id="wife-bar" class="bg-rose-400 h-2 rounded-full transition-all duration-500" style="width:0%"></div></div>
                 </div>
             </div>
@@ -490,11 +498,16 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
             <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="database" class="w-4 h-4 text-rose-500"></i><span>데이터 관리</span></h3>
-            <p class="text-[11px] text-slate-400 leading-relaxed">모든 데이터는 이 브라우저(기기)에만 저장됩니다. 배우자와 데이터를 합치려면 백업 파일을 내보내 상대방에게 전달한 뒤 가져오기 하세요.</p>
+            <p class="text-[11px] text-slate-400 leading-relaxed">클라우드로 자동 동기화되지만, 엑셀/JSON 파일로도 전체 데이터를 내보내거나 가져올 수 있어요.</p>
             <div class="grid grid-cols-2 gap-2">
-                <button id="export-data-btn" class="text-xs text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5"><i data-lucide="download" class="w-3.5 h-3.5"></i>백업 내보내기</button>
+                <button id="export-excel-btn" class="text-xs text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5"><i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>엑셀로 내보내기</button>
+                <label class="text-xs text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5 cursor-pointer">
+                    <i data-lucide="upload" class="w-3.5 h-3.5"></i>엑셀로 가져오기
+                    <input type="file" id="import-excel-input" accept=".xlsx" class="hidden">
+                </label>
+                <button id="export-data-btn" class="text-xs text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5"><i data-lucide="download" class="w-3.5 h-3.5"></i>JSON 백업 내보내기</button>
                 <label class="text-xs text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5 cursor-pointer">
-                    <i data-lucide="upload" class="w-3.5 h-3.5"></i>백업 가져오기
+                    <i data-lucide="upload" class="w-3.5 h-3.5"></i>JSON 백업 가져오기
                     <input type="file" id="import-data-input" accept="application/json" class="hidden">
                 </label>
             </div>
@@ -657,6 +670,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     let stockTradeType = '매수';
     let selectedDate = new Date();
     let summarySelectDate = new Date();
+    let incomeCumDate = new Date();
     let chartPeriodMode = 'monthly';
     let trendsYear = new Date().getFullYear();
     let stockGroupMode = 'monthly';
@@ -892,6 +906,125 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             }
         };
         reader.readAsText(file);
+    }
+
+    // ---------- 엑셀 일괄 내보내기/가져오기 ----------
+    function exportExcelAll() {
+        if (typeof XLSX === 'undefined') { showAppToast('엑셀 라이브러리를 불러오지 못했어요.'); return; }
+
+        const txRows = [['날짜', '구분', '카테고리', '보조카테고리', '금액', '메모', '결제자']];
+        transactions.slice().sort((a, b) => (a.date < b.date ? -1 : 1)).forEach(t => {
+            txRows.push([t.date, t.type === 'income' ? '수입' : '지출', t.category, t.subCategory || '', t.amount, t.memo || '', t.payer || '']);
+        });
+
+        const assetRows = [['구분', '항목명', '기록일자', '평가금액', '투자원금']];
+        assets.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(a => {
+            assetRows.push([a.type, a.name, a.date || '', a.amount, a.principal != null ? a.principal : a.amount]);
+        });
+
+        const stockRows = [['구분', '종목', '일자', '단가', '수량', '총금액', '메모']];
+        stocks.slice().sort((a, b) => (a.date || '') < (b.date || '') ? -1 : 1).forEach(s => {
+            stockRows.push([s.type, s.item, s.date || '', s.unitPrice != null ? s.unitPrice : '', s.qty != null ? s.qty : '', s.amount, s.memo || '']);
+        });
+
+        const settingRows = [
+            ['항목', '값'],
+            ['목표금액', targetGoalAmount],
+            ['목표달성일', targetGoalDate],
+            ['현재작성자', currentUser],
+            ['종목목록(쉼표구분)', stockItems.join(', ')]
+        ];
+
+        const wb = XLSX.utils.book_new();
+        const wsTx = XLSX.utils.aoa_to_sheet(txRows); wsTx['!cols'] = [{ wch: 11 }, { wch: 6 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 8 }];
+        const wsAsset = XLSX.utils.aoa_to_sheet(assetRows); wsAsset['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 11 }, { wch: 14 }, { wch: 14 }];
+        const wsStock = XLSX.utils.aoa_to_sheet(stockRows); wsStock['!cols'] = [{ wch: 6 }, { wch: 14 }, { wch: 11 }, { wch: 12 }, { wch: 8 }, { wch: 14 }, { wch: 20 }];
+        const wsSetting = XLSX.utils.aoa_to_sheet(settingRows); wsSetting['!cols'] = [{ wch: 18 }, { wch: 30 }];
+        XLSX.utils.book_append_sheet(wb, wsTx, '거래내역');
+        XLSX.utils.book_append_sheet(wb, wsAsset, '자산기록');
+        XLSX.utils.book_append_sheet(wb, wsStock, '매매일지');
+        XLSX.utils.book_append_sheet(wb, wsSetting, '설정');
+        XLSX.writeFile(wb, `부부가계부_전체데이터_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    }
+
+    function importExcelAll(file) {
+        showAppConfirm('엑셀 파일 내용으로 현재 데이터를 덮어씁니다. 계속할까요?', () => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                    const sheetToRows = (name) => {
+                        if (wb.SheetNames.indexOf(name) === -1) return null;
+                        const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' });
+                        return rows.slice(1).filter(r => r.length && r[0] !== '');
+                    };
+
+                    const txRows = sheetToRows('거래내역');
+                    if (txRows) {
+                        const base = Date.now();
+                        transactions = txRows.map((r, i) => ({
+                            id: String(base + i),
+                            date: String(r[0] || ''),
+                            type: r[1] === '수입' ? 'income' : 'expense',
+                            category: String(r[2] || '기타'),
+                            subCategory: String(r[3] || ''),
+                            amount: Number(r[4]) || 0,
+                            memo: String(r[5] || ''),
+                            payer: String(r[6] || '공동')
+                        }));
+                    }
+
+                    const assetRows = sheetToRows('자산기록');
+                    if (assetRows) {
+                        const base = Date.now() + 100000;
+                        assets = assetRows.map((r, i) => ({
+                            id: String(base + i),
+                            type: String(r[0] || '기타'),
+                            name: String(r[1] || ''),
+                            date: String(r[2] || ''),
+                            amount: Number(r[3]) || 0,
+                            principal: r[4] !== '' && r[4] != null ? Number(r[4]) : (Number(r[3]) || 0)
+                        }));
+                    }
+
+                    const stockRows = sheetToRows('매매일지');
+                    if (stockRows) {
+                        const base = Date.now() + 200000;
+                        stocks = stockRows.map((r, i) => {
+                            const unitPrice = r[3] !== '' ? Number(r[3]) : 0;
+                            const qty = r[4] !== '' ? Number(r[4]) : 0;
+                            const amount = r[5] !== '' && r[5] != null ? Number(r[5]) : Math.round(unitPrice * qty);
+                            return { id: String(base + i), type: String(r[0] || '매수'), item: String(r[1] || ''), date: String(r[2] || ''), unitPrice, qty, amount, memo: String(r[6] || '-') };
+                        });
+                    }
+
+                    const settingRows = sheetToRows('설정');
+                    if (settingRows) {
+                        settingRows.forEach(r => {
+                            const key = String(r[0] || '');
+                            const val = r[1];
+                            if (key === '목표금액' && val) targetGoalAmount = Number(val) || targetGoalAmount;
+                            else if (key === '목표달성일' && val) targetGoalDate = String(val);
+                            else if (key === '현재작성자' && val) currentUser = String(val);
+                            else if (key.indexOf('종목목록') === 0 && val) stockItems = String(val).split(',').map(s => s.trim()).filter(Boolean);
+                        });
+                    }
+
+                    saveAll();
+                    updateStockItemDropdown();
+                    renderStockItemsSettings();
+                    document.getElementById('setting-goal-amount').value = targetGoalAmount;
+                    document.getElementById('setting-goal-date').value = targetGoalDate;
+                    document.getElementById('current-user-name').textContent = currentUser;
+                    document.getElementById('settings-user-display').textContent = currentUser;
+                    render();
+                    showAppToast('엑셀 데이터를 성공적으로 불러왔습니다!');
+                } catch (err) {
+                    showAppToast('엑셀 파일을 읽을 수 없습니다: ' + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
     }
 
     // ---------- 자산 스냅샷 (중복 합산 방지) ----------
@@ -1155,6 +1288,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('asset-next-month').addEventListener('click', () => { selectedDate.setMonth(selectedDate.getMonth() + 1); render(); });
         document.getElementById('dash-summary-prev').addEventListener('click', () => { summarySelectDate.setMonth(summarySelectDate.getMonth() - 1); renderDashboardSummaryCard(); });
         document.getElementById('dash-summary-next').addEventListener('click', () => { summarySelectDate.setMonth(summarySelectDate.getMonth() + 1); renderDashboardSummaryCard(); });
+        document.getElementById('income-cum-prev').addEventListener('click', () => { incomeCumDate.setMonth(incomeCumDate.getMonth() - 1); renderIncomeCumulativeCard(); });
+        document.getElementById('income-cum-next').addEventListener('click', () => { incomeCumDate.setMonth(incomeCumDate.getMonth() + 1); renderIncomeCumulativeCard(); });
 
         document.getElementById('trend-prev-year').addEventListener('click', () => { trendsYear -= 1; renderTrendsCharts(); });
         document.getElementById('trend-next-year').addEventListener('click', () => { trendsYear += 1; renderTrendsCharts(); });
@@ -1318,6 +1453,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('import-data-input').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) importBackup(file);
+            e.target.value = '';
+        });
+        document.getElementById('export-excel-btn').addEventListener('click', exportExcelAll);
+        document.getElementById('import-excel-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) importExcelAll(file);
             e.target.value = '';
         });
     }
@@ -1728,15 +1869,28 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
         renderDashboardSummaryCard();
         renderTrendsCharts();
+        renderIncomeCumulativeCard();
+    }
 
-        const currentMonthItems = getFilteredMonthTransactions();
-        let monthIncome = 0, husbandIncome = 0;
-        currentMonthItems.forEach(t => { if (t.type === 'income') { monthIncome += t.amount; if (t.payer === '슈') husbandIncome += t.amount; } });
+    function renderIncomeCumulativeCard() {
+        const y = incomeCumDate.getFullYear();
+        const m = incomeCumDate.getMonth() + 1;
+        document.getElementById('income-cum-month-display').textContent = `${y}년 ${m}월까지`;
+
+        const cutoff = `${y}-${String(m).padStart(2, '0')}`;
+        let totalIncome = 0, husbandIncome = 0;
+        transactions.forEach(t => {
+            if (t.type !== 'income') return;
+            if (!t.date || t.date.slice(0, 7) > cutoff) return;
+            totalIncome += t.amount;
+            if (t.payer === '슈') husbandIncome += t.amount;
+        });
+        const wifeIncome = totalIncome - husbandIncome;
         document.getElementById('husband-spent-text').textContent = `${husbandIncome.toLocaleString()}원`;
-        document.getElementById('wife-spent-text').textContent = `${(monthIncome - husbandIncome).toLocaleString()}원`;
-        const maxInc = monthIncome || 1;
+        document.getElementById('wife-spent-text').textContent = `${wifeIncome.toLocaleString()}원`;
+        const maxInc = totalIncome || 1;
         document.getElementById('husband-bar').style.width = `${(husbandIncome / maxInc) * 100}%`;
-        document.getElementById('wife-bar').style.width = `${((monthIncome - husbandIncome) / maxInc) * 100}%`;
+        document.getElementById('wife-bar').style.width = `${(wifeIncome / maxInc) * 100}%`;
     }
 
     function renderTransactionsList() {
