@@ -32,6 +32,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 .sync-dot.offline { background: #ef4444; }
 .sync-dot.syncing { background: #f59e0b; animation: syncPulse 1s ease infinite; }
 @keyframes syncPulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+.valuation-blink { animation: valuationBlink 1.1s ease-in-out infinite; }
+@keyframes valuationBlink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 /* 초기 로딩 오버레이 */
 #global-loader {
     position: fixed; inset: 0; background: rgba(248,250,252,0.96); z-index: 100;
@@ -75,6 +77,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 </header>
 
 <main class="max-w-md mx-auto px-4 pt-4 space-y-4">
+
+    <div id="valuation-alert-banner" class="hidden bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+            <span class="valuation-blink text-lg">⚠️</span>
+            <div>
+                <div class="text-xs font-bold text-amber-800" id="valuation-alert-text">0개 종목의 평가금액 입력이 필요해요</div>
+                <div class="text-[10px] text-amber-600">매매일지에서 자동으로 넘어온 자산이에요 · 현재가로 업데이트해주세요</div>
+            </div>
+        </div>
+        <button id="valuation-alert-btn" class="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg transition">지금 입력하기</button>
+    </div>
 
     <div id="sync-status-bar" class="flex items-center justify-between gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] px-3 py-1.5 rounded-full font-medium">
         <div class="flex items-center gap-1.5">
@@ -740,6 +753,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     let stockItems = ['테슬라', '애플', '엔비디아', '삼성전자', '국내고배당ETF'];
     let targetGoalAmount = 500000000;
     let targetGoalDate = '2028-05-31';
+    let stockRolloverProcessedMonths = []; // 매매일지 -> 자산기록 자동 반영 완료된 'YYYY-MM' 목록
+    const STOCK_ACCOUNT_TO_ASSET_TYPE = { '연금저축': '연금저축', 'ISA': '주식(ISA)', 'IRP': '주식(IRP)' };
 
     let assetTrendChartInstance = null;
     let consumptionTrendChartInstance = null;
@@ -778,12 +793,15 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         if (data.targetGoalAmount) targetGoalAmount = data.targetGoalAmount;
         if (data.targetGoalDate) targetGoalDate = data.targetGoalDate;
         if (data.currentUser) currentUser = data.currentUser;
+        if (Array.isArray(data.stockRolloverProcessedMonths)) stockRolloverProcessedMonths = data.stockRolloverProcessedMonths;
         document.getElementById('setting-goal-amount').value = targetGoalAmount;
         document.getElementById('setting-goal-date').value = targetGoalDate;
         document.getElementById('current-user-name').textContent = currentUser;
         document.getElementById('settings-user-display').textContent = currentUser;
         updateStockItemDropdown();
         renderStockItemsSettings();
+        applyingRemoteUpdate = false; // 롤오버가 saveAll()로 정상 저장되도록 플래그를 먼저 해제
+        runStockRollover();
         render();
         safeCreateIcons();
         applyingRemoteUpdate = false;
@@ -822,7 +840,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         if (!firebaseReady || !db || !syncCode) return;
         try {
             await db.collection('couples_budgets').doc(syncCode).set({
-                transactions, assets, stocks, stockItems, targetGoalAmount, targetGoalDate, currentUser,
+                transactions, assets, stocks, stockItems, targetGoalAmount, targetGoalDate, currentUser, stockRolloverProcessedMonths,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
         } catch (e) {
@@ -931,7 +949,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     }
 
     function exportBackup() {
-        const payload = { transactions, assets, stocks, stockItems, targetGoalAmount, targetGoalDate, currentUser, exportedAt: new Date().toISOString() };
+        const payload = { transactions, assets, stocks, stockItems, targetGoalAmount, targetGoalDate, currentUser, stockRolloverProcessedMonths, exportedAt: new Date().toISOString() };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -957,6 +975,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 if (Array.isArray(data.stockItems)) stockItems = data.stockItems;
                 if (data.targetGoalAmount) targetGoalAmount = data.targetGoalAmount;
                 if (data.targetGoalDate) targetGoalDate = data.targetGoalDate;
+                if (Array.isArray(data.stockRolloverProcessedMonths)) stockRolloverProcessedMonths = data.stockRolloverProcessedMonths;
                 saveAll();
                 updateStockItemDropdown();
                 renderStockItemsSettings();
@@ -1132,6 +1151,93 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         return Object.values(latestByKey);
     }
 
+    // ---------- 매매일지 -> 자산기록 월말 자동 반영 ----------
+    function computeHoldingAsOf(account, item, cutoffDateStr) {
+        const trades = stocks
+            .filter(s => (s.account || '연금저축') === account && s.item === item && s.date && s.date <= cutoffDateStr)
+            .sort((a, b) => {
+                if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+                return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+            });
+        let qty = 0, avgCost = 0;
+        trades.forEach(s => {
+            if (s.type === '매수') {
+                const newQty = qty + s.qty;
+                avgCost = newQty > 0 ? (avgCost * qty + s.amount) / newQty : 0;
+                qty = newQty;
+            } else {
+                qty = Math.max(0, qty - s.qty);
+                if (qty === 0) avgCost = 0;
+            }
+        });
+        return { qty, avgCost };
+    }
+
+    function runStockRollover() {
+        if (!stocks.length) return;
+        const now = new Date();
+        const currentYM = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+
+        const tradeMonths = new Set();
+        stocks.forEach(s => { if (s.date) tradeMonths.add(s.date.slice(0, 7)); });
+        const candidateMonths = Array.from(tradeMonths)
+            .filter(ym => ym < currentYM && stockRolloverProcessedMonths.indexOf(ym) === -1)
+            .sort();
+        if (candidateMonths.length === 0) return;
+
+        const accountItemPairs = new Set();
+        stocks.forEach(s => accountItemPairs.add((s.account || '연금저축') + '||' + s.item));
+
+        let addedAny = false;
+        candidateMonths.forEach(ym => {
+            const [y, m] = ym.split('-').map(Number);
+            const monthEndDate = new Date(y, m, 0);
+            const monthEndStr = monthEndDate.getFullYear() + '-' + String(monthEndDate.getMonth() + 1).padStart(2, '0') + '-' + String(monthEndDate.getDate()).padStart(2, '0');
+
+            accountItemPairs.forEach(key => {
+                const [account, item] = key.split('||');
+                const { qty, avgCost } = computeHoldingAsOf(account, item, monthEndStr);
+                if (qty <= 0) return;
+                const assetType = STOCK_ACCOUNT_TO_ASSET_TYPE[account] || '연금저축';
+                const alreadyExists = assets.some(a => a.type === assetType && a.name === item && a.date === monthEndStr);
+                if (alreadyExists) return;
+                const costBasis = Math.round(qty * avgCost);
+                assets.push({
+                    id: `rollover-${monthEndStr}-${account}-${item}-${Date.now()}`,
+                    type: assetType,
+                    name: item,
+                    date: monthEndStr,
+                    amount: costBasis,
+                    principal: costBasis,
+                    needsValuation: true
+                });
+                addedAny = true;
+            });
+            stockRolloverProcessedMonths.push(ym);
+        });
+
+        if (addedAny) {
+            saveAll();
+            showAppToast('매매일지 내역이 자산기록으로 자동 반영됐어요. 평가금액을 입력해주세요!');
+        }
+    }
+
+    function getPendingValuationAssets() {
+        return getAssetSnapshotAsOf(new Date()).filter(a => a.needsValuation);
+    }
+
+    function renderValuationAlertBanner() {
+        const banner = document.getElementById('valuation-alert-banner');
+        if (!banner) return;
+        const pending = getPendingValuationAssets();
+        if (pending.length === 0) {
+            banner.classList.add('hidden');
+            return;
+        }
+        banner.classList.remove('hidden');
+        document.getElementById('valuation-alert-text').textContent = `${pending.length}개 종목의 평가금액 입력이 필요해요`;
+    }
+
     // ---------- 초기화 ----------
     window.switchTab = function (tabName) {
         if (currentTab === 'stocks' && tabName !== 'stocks' && editingStockId) exitStockEditMode();
@@ -1179,6 +1285,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         } else {
             const hadStoredData = loadAll();
             if (!hadStoredData) loadDummyData();
+            runStockRollover();
             updateSyncBadge('local');
             hideGlobalLoader();
             render();
@@ -1188,6 +1295,15 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     function setupSyncEventListeners() {
         document.getElementById('open-sync-modal').addEventListener('click', openSyncModal);
         document.getElementById('header-user-toggle').addEventListener('click', toggleCurrentUser);
+        document.getElementById('valuation-alert-btn').addEventListener('click', function () {
+            const pending = getPendingValuationAssets();
+            switchTab('assets');
+            if (pending.length > 0) {
+                selectedDate = new Date(pending[0].date + 'T00:00:00');
+                render();
+                setTimeout(function () { startEditAsset(pending[0].id); }, 50);
+            }
+        });
         document.getElementById('syncCopyCodeBtn').addEventListener('click', function () {
             const code = document.getElementById('syncCurrentCodeText').textContent;
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1476,6 +1592,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 if (target) {
                     const principal = principalInput.trim() !== '' ? parseInt(principalInput, 10) : (target.principal || target.amount);
                     target.type = type; target.name = name; target.date = date; target.amount = amount; target.principal = principal;
+                    target.needsValuation = false; // 평가금액을 직접 입력/수정했으므로 알림 해제
                 }
                 exitAssetEditMode();
             } else {
@@ -1808,6 +1925,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         else if (currentTab === 'assets') renderAssets();
         else if (currentTab === 'stocks') renderStocks();
 
+        renderValuationAlertBanner();
         safeCreateIcons();
     }
 
@@ -2130,10 +2248,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             groupCard.className = "bg-white rounded-2xl p-4 shadow-sm border border-slate-100";
             const groupTotal = groupItems.reduce((acc, curr) => acc + curr.amount, 0);
             const itemsHtml = groupItems.map(item => `
-                <div class="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0 text-xs">
+                <div class="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0 text-xs ${item.needsValuation ? 'cursor-pointer bg-amber-50/60 -mx-1 px-1 rounded-lg' : ''}" ${item.needsValuation ? `data-valuation-item="${item.id}"` : ''}>
                     <div>
                         <span class="text-slate-700 font-medium block">${item.name}</span>
                         ${item.date ? `<span class="text-[10px] text-slate-400">${item.date}</span>` : ''}
+                        ${item.needsValuation ? `<span class="valuation-blink text-[9px] text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded font-semibold inline-block mt-0.5">⚠ 평가금액 입력필요</span>` : ''}
                     </div>
                     <div class="flex items-center">
                         <span class="font-semibold ${groupName === '대출/부채' ? 'text-rose-600' : 'text-slate-900'}">${item.amount.toLocaleString()}원</span>
@@ -2147,6 +2266,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 <div class="divide-y divide-slate-100">${itemsHtml}</div>`;
             container.appendChild(groupCard);
         });
+        container.querySelectorAll('[data-valuation-item]').forEach(el => {
+            el.addEventListener('click', () => startEditAsset(el.dataset.valuationItem));
+        });
+        renderValuationAlertBanner();
 
 
         const historyListContainer = document.getElementById('asset-history-list');
