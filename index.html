@@ -2071,7 +2071,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         returnRateEl.classList.add(parseFloat(returnRate) >= 0 ? 'text-rose-400' : 'text-sky-400');
 
         document.getElementById('target-goal-text').textContent = `${targetGoalAmount.toLocaleString()}원`;
-        const goalPct = Math.max(0, Math.min(100, ((netAsset / targetGoalAmount) * 100))).toFixed(1);
+        const goalPct = Math.max(0, Math.min(100, ((netAsset / targetGoalAmount) * 100))).toFixed(2);
         document.getElementById('goal-percentage').textContent = `${goalPct}%`;
         document.getElementById('goal-progress-bar').style.width = `${goalPct}%`;
 
