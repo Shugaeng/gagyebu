@@ -343,6 +343,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                             </optgroup>
                             <option value="__custom">+ 직접 입력</option>
                         </select>
+                        <select id="asset-pension-select" class="hidden w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                            <option value="TIGER S&P500">TIGER S&P500</option>
+                            <option value="KODEX 나스닥100">KODEX 나스닥100</option>
+                            <option value="KODEX 미국배당다우존스">KODEX 미국배당다우존스</option>
+                            <option value="__custom">+ 직접 입력</option>
+                        </select>
                         <input type="text" id="asset-name" placeholder="예: 연금저축펀드" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                     </div>
                 </div>
@@ -538,9 +544,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             <div class="generated-code" id="syncGeneratedCode">------</div>
         </div>
         <div class="sync-modal-section hidden" id="syncSectionExisting">
-            <input type="text" id="syncExistingCodeInput" placeholder="예: AB12CD34" maxlength="12" autocapitalize="characters">
+            <input type="text" id="syncExistingCodeInput" placeholder="예: 123456" maxlength="6" inputmode="numeric" pattern="[0-9]*">
         </div>
-        <div class="sync-modal-error" id="syncCodeError">코드는 6자 이상이어야 해요.</div>
+        <div class="sync-modal-error" id="syncCodeError">코드는 숫자 6자리로 입력해주세요.</div>
         <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-2.5 rounded-xl transition" id="syncConfirmBtn">이 코드로 시작하기</button>
     </div>
 </div>
@@ -755,9 +761,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     }
 
     function genSyncCode() {
-        var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         var out = '';
-        for (var i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+        for (var i = 0; i < 6; i++) out += Math.floor(Math.random() * 10);
         return out;
     }
 
@@ -962,14 +967,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('header-user-toggle').addEventListener('click', toggleCurrentUser);
         document.getElementById('syncModeNew').addEventListener('click', function () { switchSyncModalMode('new'); });
         document.getElementById('syncModeExisting').addEventListener('click', function () { switchSyncModalMode('existing'); });
+        document.getElementById('syncExistingCodeInput').addEventListener('input', function (e) {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+        });
         document.getElementById('syncConfirmBtn').addEventListener('click', function () {
             const usingNew = document.getElementById('syncModeNew').classList.contains('active');
             const code = usingNew
                 ? document.getElementById('syncGeneratedCode').textContent.trim()
-                : document.getElementById('syncExistingCodeInput').value.trim().toUpperCase();
-            if (!code || code.length < 6) {
+                : document.getElementById('syncExistingCodeInput').value.trim();
+            if (!/^[0-9]{6}$/.test(code)) {
                 const err = document.getElementById('syncCodeError');
-                err.textContent = '코드는 6자 이상이어야 해요.';
+                err.textContent = '코드는 숫자 6자리로 입력해주세요.';
                 err.classList.add('show');
                 return;
             }
@@ -1060,6 +1068,18 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             } else {
                 nameInput.classList.add('hidden');
                 nameInput.value = bankSelect.value;
+            }
+        });
+        document.getElementById('asset-pension-select').addEventListener('change', () => {
+            const pensionSelect = document.getElementById('asset-pension-select');
+            const nameInput = document.getElementById('asset-name');
+            if (pensionSelect.value === '__custom') {
+                nameInput.classList.remove('hidden');
+                nameInput.value = '';
+                nameInput.focus();
+            } else {
+                nameInput.classList.add('hidden');
+                nameInput.value = pensionSelect.value;
             }
         });
 
@@ -1236,6 +1256,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             if (document.getElementById('asset-type').value === '예금/파킹통장') {
                 const bankVal = document.getElementById('asset-bank-select').value;
                 updateAssetNameFieldMode(bankVal === '__custom' ? '' : bankVal);
+            } else if (document.getElementById('asset-type').value === '연금저축') {
+                const pensionVal = document.getElementById('asset-pension-select').value;
+                updateAssetNameFieldMode(pensionVal === '__custom' ? '' : pensionVal);
             } else {
                 document.getElementById('asset-name').value = '';
             }
@@ -1380,9 +1403,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     function updateAssetNameFieldMode(presetName) {
         const type = document.getElementById('asset-type').value;
         const bankSelect = document.getElementById('asset-bank-select');
+        const pensionSelect = document.getElementById('asset-pension-select');
         const nameInput = document.getElementById('asset-name');
 
         if (type === '예금/파킹통장') {
+            pensionSelect.classList.add('hidden');
             bankSelect.classList.remove('hidden');
             const bankOptionValues = Array.from(bankSelect.options).map(o => o.value);
             if (presetName && bankOptionValues.includes(presetName)) {
@@ -1398,8 +1423,26 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 nameInput.classList.add('hidden');
                 nameInput.value = bankOptionValues[0];
             }
+        } else if (type === '연금저축') {
+            bankSelect.classList.add('hidden');
+            pensionSelect.classList.remove('hidden');
+            const pensionOptionValues = Array.from(pensionSelect.options).map(o => o.value);
+            if (presetName && pensionOptionValues.includes(presetName)) {
+                pensionSelect.value = presetName;
+                nameInput.classList.add('hidden');
+                nameInput.value = presetName;
+            } else if (presetName) {
+                pensionSelect.value = '__custom';
+                nameInput.classList.remove('hidden');
+                nameInput.value = presetName;
+            } else {
+                pensionSelect.value = pensionOptionValues[0];
+                nameInput.classList.add('hidden');
+                nameInput.value = pensionOptionValues[0];
+            }
         } else {
             bankSelect.classList.add('hidden');
+            pensionSelect.classList.add('hidden');
             nameInput.classList.remove('hidden');
             if (presetName !== undefined) nameInput.value = presetName || '';
         }
