@@ -214,6 +214,16 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
     <!-- TAB 2: 소비/수입 -->
     <section id="tab-transactions" class="tab-content hidden space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+            <div class="bg-emerald-50/60 rounded-2xl p-3.5 border border-emerald-100">
+                <div class="text-[11px] text-emerald-700 font-medium mb-1">이번 달 총수입</div>
+                <div id="tx-tab-income" class="text-base font-bold text-emerald-600">0원</div>
+            </div>
+            <div class="bg-rose-50/60 rounded-2xl p-3.5 border border-rose-100">
+                <div class="text-[11px] text-rose-700 font-medium mb-1">이번 달 총지출</div>
+                <div id="tx-tab-expense" class="text-base font-bold text-rose-500">0원</div>
+            </div>
+        </div>
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
             <h2 class="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
                 <span class="flex items-center space-x-2"><i data-lucide="plus-circle" class="w-4 h-4 text-rose-500"></i><span>내역 추가하기</span></span>
@@ -498,7 +508,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
             <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="database" class="w-4 h-4 text-rose-500"></i><span>데이터 관리</span></h3>
-            <p class="text-[11px] text-slate-400 leading-relaxed">클라우드로 자동 동기화되지만, 엑셀/JSON 파일로도 전체 데이터를 내보내거나 가져올 수 있어요.</p>
+            <p class="text-[11px] text-slate-400 leading-relaxed">클라우드로 자동 동기화돼요. 엑셀 가져오기는 기존 내역에 추가되며(중복은 자동 제외), JSON 백업은 전체를 교체해요.</p>
             <div class="grid grid-cols-2 gap-2">
                 <button id="export-excel-btn" class="text-xs text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5"><i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>엑셀로 내보내기</button>
                 <label class="text-xs text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5 cursor-pointer">
@@ -948,7 +958,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     }
 
     function importExcelAll(file) {
-        showAppConfirm('엑셀 파일 내용으로 현재 데이터를 덮어씁니다. 계속할까요?', () => {
+        showAppConfirm('엑셀 파일의 내역을 기존 데이터에 추가합니다(중복은 자동으로 건너뜁니다). 계속할까요?', () => {
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
@@ -958,43 +968,67 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' });
                         return rows.slice(1).filter(r => r.length && r[0] !== '');
                     };
+                    let addedCount = 0, skippedCount = 0;
 
                     const txRows = sheetToRows('거래내역');
                     if (txRows) {
+                        const existingSigs = new Set(transactions.map(t => [t.date, t.type, t.category, t.subCategory || '', t.amount, t.memo || '', t.payer || ''].join('||')));
                         const base = Date.now();
-                        transactions = txRows.map((r, i) => ({
-                            id: String(base + i),
-                            date: String(r[0] || ''),
-                            type: r[1] === '수입' ? 'income' : 'expense',
-                            category: String(r[2] || '기타'),
-                            subCategory: String(r[3] || ''),
-                            amount: Number(r[4]) || 0,
-                            memo: String(r[5] || ''),
-                            payer: String(r[6] || '공동')
-                        }));
+                        let idx = 0;
+                        txRows.forEach(r => {
+                            const item = {
+                                date: String(r[0] || ''),
+                                type: r[1] === '수입' ? 'income' : 'expense',
+                                category: String(r[2] || '기타'),
+                                subCategory: String(r[3] || ''),
+                                amount: Number(r[4]) || 0,
+                                memo: String(r[5] || ''),
+                                payer: String(r[6] || '공동')
+                            };
+                            const sig = [item.date, item.type, item.category, item.subCategory, item.amount, item.memo, item.payer].join('||');
+                            if (existingSigs.has(sig)) { skippedCount++; return; }
+                            existingSigs.add(sig);
+                            transactions.push(Object.assign({ id: String(base + idx) }, item));
+                            idx++; addedCount++;
+                        });
                     }
 
                     const assetRows = sheetToRows('자산기록');
                     if (assetRows) {
+                        const existingSigs = new Set(assets.map(a => [a.type, a.name, a.date || '', a.amount, a.principal != null ? a.principal : ''].join('||')));
                         const base = Date.now() + 100000;
-                        assets = assetRows.map((r, i) => ({
-                            id: String(base + i),
-                            type: String(r[0] || '기타'),
-                            name: String(r[1] || ''),
-                            date: String(r[2] || ''),
-                            amount: Number(r[3]) || 0,
-                            principal: r[4] !== '' && r[4] != null ? Number(r[4]) : (Number(r[3]) || 0)
-                        }));
+                        let idx = 0;
+                        assetRows.forEach(r => {
+                            const item = {
+                                type: String(r[0] || '기타'),
+                                name: String(r[1] || ''),
+                                date: String(r[2] || ''),
+                                amount: Number(r[3]) || 0,
+                                principal: r[4] !== '' && r[4] != null ? Number(r[4]) : (Number(r[3]) || 0)
+                            };
+                            const sig = [item.type, item.name, item.date, item.amount, item.principal].join('||');
+                            if (existingSigs.has(sig)) { skippedCount++; return; }
+                            existingSigs.add(sig);
+                            assets.push(Object.assign({ id: String(base + idx) }, item));
+                            idx++; addedCount++;
+                        });
                     }
 
                     const stockRows = sheetToRows('매매일지');
                     if (stockRows) {
+                        const existingSigs = new Set(stocks.map(s => [s.type, s.item, s.date || '', s.unitPrice != null ? s.unitPrice : '', s.qty != null ? s.qty : '', s.amount, s.memo || ''].join('||')));
                         const base = Date.now() + 200000;
-                        stocks = stockRows.map((r, i) => {
+                        let idx = 0;
+                        stockRows.forEach(r => {
                             const unitPrice = r[3] !== '' ? Number(r[3]) : 0;
                             const qty = r[4] !== '' ? Number(r[4]) : 0;
                             const amount = r[5] !== '' && r[5] != null ? Number(r[5]) : Math.round(unitPrice * qty);
-                            return { id: String(base + i), type: String(r[0] || '매수'), item: String(r[1] || ''), date: String(r[2] || ''), unitPrice, qty, amount, memo: String(r[6] || '-') };
+                            const item = { type: String(r[0] || '매수'), item: String(r[1] || ''), date: String(r[2] || ''), unitPrice, qty, amount, memo: String(r[6] || '-') };
+                            const sig = [item.type, item.item, item.date, item.unitPrice, item.qty, item.amount, item.memo].join('||');
+                            if (existingSigs.has(sig)) { skippedCount++; return; }
+                            existingSigs.add(sig);
+                            stocks.push(Object.assign({ id: String(base + idx) }, item));
+                            idx++; addedCount++;
                         });
                     }
 
@@ -1018,7 +1052,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                     document.getElementById('current-user-name').textContent = currentUser;
                     document.getElementById('settings-user-display').textContent = currentUser;
                     render();
-                    showAppToast('엑셀 데이터를 성공적으로 불러왔습니다!');
+                    showAppToast(`불러오기 완료: ${addedCount}건 추가${skippedCount > 0 ? `, ${skippedCount}건 중복 제외` : ''}`);
                 } catch (err) {
                     showAppToast('엑셀 파일을 읽을 수 없습니다: ' + err.message);
                 }
@@ -1896,7 +1930,13 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     function renderTransactionsList() {
         const listContainer = document.getElementById('transaction-list');
         listContainer.innerHTML = '';
-        let currentMonthItems = getFilteredMonthTransactions();
+        const allMonthItems = getFilteredMonthTransactions();
+        let monthIncome = 0, monthExpense = 0;
+        allMonthItems.forEach(t => { if (t.type === 'income') monthIncome += t.amount; else if (t.type === 'expense') monthExpense += t.amount; });
+        document.getElementById('tx-tab-income').textContent = `${monthIncome.toLocaleString()}원`;
+        document.getElementById('tx-tab-expense').textContent = `${monthExpense.toLocaleString()}원`;
+
+        let currentMonthItems = allMonthItems;
         if (activeFilter === 'expense') currentMonthItems = currentMonthItems.filter(t => t.type === 'expense');
         else if (activeFilter === 'income') currentMonthItems = currentMonthItems.filter(t => t.type === 'income');
         currentMonthItems.sort((a, b) => new Date(b.date) - new Date(a.date));
