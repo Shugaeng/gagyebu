@@ -2273,11 +2273,25 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             }
         } else {
             const itemGroups = {};
-            stocks.forEach(s => {
-                if (!itemGroups[s.item]) itemGroups[s.item] = { buySum: 0, sellSum: 0, totalQty: 0, count: 0 };
-                if (s.type === '매수') { itemGroups[s.item].buySum += s.amount; itemGroups[s.item].totalQty += s.qty; }
-                else { itemGroups[s.item].sellSum += s.amount; itemGroups[s.item].totalQty = Math.max(0, itemGroups[s.item].totalQty - s.qty); }
-                itemGroups[s.item].count++;
+            const chronological = stocks.slice().sort((a, b) => {
+                const da = a.date || '', db = b.date || '';
+                if (da !== db) return da < db ? -1 : 1;
+                return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+            });
+            chronological.forEach(s => {
+                if (!itemGroups[s.item]) itemGroups[s.item] = { buySum: 0, sellSum: 0, totalQty: 0, count: 0, avgCost: 0 };
+                const g = itemGroups[s.item];
+                if (s.type === '매수') {
+                    g.buySum += s.amount;
+                    const newQty = g.totalQty + s.qty;
+                    g.avgCost = newQty > 0 ? (g.avgCost * g.totalQty + s.amount) / newQty : 0;
+                    g.totalQty = newQty;
+                } else {
+                    g.sellSum += s.amount;
+                    g.totalQty = Math.max(0, g.totalQty - s.qty);
+                    if (g.totalQty === 0) g.avgCost = 0; // 전량 매도 시 평단가 초기화
+                }
+                g.count++;
             });
             const itemNames = Object.keys(itemGroups);
             document.getElementById('stock-count').textContent = `총 ${itemNames.length}개 종목`;
@@ -2288,12 +2302,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 visibleNames.forEach(itemName => {
                     const info = itemGroups[itemName];
                     const netInvest = info.buySum - info.sellSum;
+                    const avgCostText = info.totalQty > 0 ? `${Math.round(info.avgCost).toLocaleString()}원` : '전량 매도';
                     const card = document.createElement('div');
                     card.className = "py-3 flex items-center justify-between hover:bg-slate-50/80 px-2 rounded-lg transition text-xs border-b border-slate-50 last:border-0";
                     card.innerHTML = `
                         <div>
                             <div class="flex items-center space-x-1.5"><span class="font-bold text-slate-900 text-sm">${itemName}</span><span class="text-[10px] bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded-full font-semibold">총 ${info.count}건 거래</span></div>
                             <div class="text-[11px] text-slate-500 mt-1">매수총액: <strong class="text-indigo-600">${info.buySum.toLocaleString()}원</strong> / 매도총액: <strong class="text-rose-500">${info.sellSum.toLocaleString()}원</strong></div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">평단가: <strong class="text-slate-700">${avgCostText}</strong> ${info.totalQty > 0 ? `<span class="text-slate-400">(보유 ${info.totalQty}주)</span>` : ''}</div>
                         </div>
                         <div class="text-right"><span class="text-xs font-extrabold text-slate-800 block">${netInvest >= 0 ? netInvest.toLocaleString() : 0}원</span><span class="text-[10px] text-slate-400">순투자금</span></div>`;
                     listContainer.appendChild(card);
