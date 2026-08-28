@@ -2046,6 +2046,27 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         });
     }
 
+    function getPriorAssetAmount(log) {
+        const sameKeyRecords = assets.filter(a => a.type === log.type && a.name === log.name);
+        const sorted = sameKeyRecords.slice().sort((a, b) => {
+            const da = a.date || '', db = b.date || '';
+            if (da !== db) return da < db ? -1 : 1;
+            return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+        });
+        const idx = sorted.findIndex(a => a.id === log.id);
+        if (idx <= 0) return null;
+        return sorted[idx - 1].amount;
+    }
+
+    function renderAssetChangeBadge(log) {
+        const prior = getPriorAssetAmount(log);
+        if (prior === null || prior === 0) return '';
+        const pct = ((log.amount - prior) / prior) * 100;
+        const colorClass = pct >= 0 ? 'text-rose-500' : 'text-sky-500';
+        const sign = pct >= 0 ? '+' : '';
+        return `<span class="text-[10px] font-semibold ${colorClass} mr-1">${sign}${pct.toFixed(1)}%</span>`;
+    }
+
     function renderAssets() {
         const assetYear = selectedDate.getFullYear();
         const assetMonth = selectedDate.getMonth() + 1;
@@ -2127,6 +2148,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         </div>
                     </div>
                     <div class="flex items-center space-x-1">
+                        ${renderAssetChangeBadge(log)}
                         <span class="font-bold ${isLiability ? 'text-rose-600' : 'text-slate-900'} mr-1">${isLiability ? '-' : '+'}${log.amount.toLocaleString()}원</span>
                         <button data-edit-asset-log="${log.id}" class="text-slate-400 hover:text-indigo-500 transition p-1">${PENCIL_SVG}</button>
                         <button data-delete-asset-log="${log.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
