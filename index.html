@@ -579,6 +579,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             <div id="allocator-safe-list" class="divide-y divide-slate-100"></div>
         </div>
 
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
+            <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="target" class="w-4 h-4 text-rose-500"></i><span>목표 비율 설정</span></h3>
+            <p class="text-[10px] text-slate-400 leading-relaxed">모아가는 비율을 숫자로 입력하세요 (예: 5:3:2 → 각각 5, 3, 2). 2개 이상 입력하면 아래에 현재 비중과 비교해서 보여드려요.</p>
+            <div id="allocator-target-inputs" class="space-y-2"></div>
+        </div>
+
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hidden" id="allocator-target-compare-card">
+            <h3 class="text-xs font-bold text-slate-800 mb-3 flex items-center space-x-1.5"><i data-lucide="scale" class="w-4 h-4 text-indigo-500"></i><span>목표 대비 현황</span></h3>
+            <div id="allocator-target-compare" class="space-y-3"></div>
+        </div>
+
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
             <h3 class="text-xs font-bold text-slate-800 mb-1 flex items-center space-x-1.5"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i><span>전체 자산배분 비중</span></h3>
             <div id="allocator-total-summary" class="text-[10px] text-slate-400 mb-3">보유 종목 0원 + 안전자산 0원 = 합계 0원</div>
@@ -798,6 +809,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
     };
     const SAFE_ASSET_STORAGE_KEY = 'cb_allocator_safe_assets'; // 비중계산기 안전자산은 기기별 로컬에만 저장 (클라우드 미동기화)
+    const TARGET_RATIO_STORAGE_KEY = 'cb_allocator_target_ratios'; // 비중계산기 목표 비율도 기기별 로컬 전용
 
     // ---------- 상태 ----------
     let currentTab = 'dashboard';
@@ -831,6 +843,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     let targetGoalDate = '2028-05-31';
     let stockRolloverProcessedMonths = []; // 매매일지 -> 자산기록 자동 반영 완료된 'YYYY-MM' 목록
     let safeAssetItems = []; // 비중계산기 탭: 현금/채권/금 등 안전자산 (로컬 전용)
+    let targetRatios = {}; // 비중계산기 탭: 항목명 -> 목표 비율 숫자 (로컬 전용)
     let editingSafeAssetId = null;
     const STOCK_ACCOUNT_TO_ASSET_TYPE = { '연금저축': '연금저축', 'ISA': '주식(ISA)', 'IRP': '주식(IRP)' };
 
@@ -1388,6 +1401,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         updateCategoryOptions();
         updateAssetNameFieldMode();
         loadSafeAssets();
+        loadTargetRatios();
 
         document.getElementById('setting-goal-amount').value = targetGoalAmount;
         document.getElementById('setting-goal-date').value = targetGoalDate;
@@ -2618,6 +2632,28 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         }
     };
 
+    // 도넛 가운데에 총 누적 매매 금액을 표시하는 플러그인
+    const donutCenterTotalPlugin = {
+        id: 'donutCenterTotal',
+        afterDraw(chart) {
+            const { ctx, chartArea } = chart;
+            const dataArr = chart.data.datasets[0].data;
+            const total = dataArr.reduce((sum, v) => sum + v, 0);
+            const cx = (chartArea.left + chartArea.right) / 2;
+            const cy = (chartArea.top + chartArea.bottom) / 2;
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px Pretendard, sans-serif';
+            ctx.fillText('누적 매매 금액', cx, cy - 11);
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 15px Pretendard, sans-serif';
+            ctx.fillText(`${Math.round(total).toLocaleString()}원`, cx, cy + 8);
+            ctx.restore();
+        }
+    };
+
     function getFilteredStocksByAccount() {
         if (stockAccountFilter === 'all') return stocks;
         return stocks.filter(s => (s.account || '연금저축') === stockAccountFilter);
@@ -2653,7 +2689,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             type: 'doughnut',
             data: { labels, datasets: [{ data, backgroundColor: ['#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'], borderWidth: 2, borderColor: '#ffffff' }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }, cutout: '65%' },
-            plugins: [donutPercentLabelPlugin]
+            plugins: [donutPercentLabelPlugin, donutCenterTotalPlugin]
         });
     }
 
@@ -2666,6 +2702,77 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     }
     function saveSafeAssets() {
         try { localStorage.setItem(SAFE_ASSET_STORAGE_KEY, JSON.stringify(safeAssetItems)); } catch (e) {}
+    }
+
+    function loadTargetRatios() {
+        try {
+            const raw = localStorage.getItem(TARGET_RATIO_STORAGE_KEY);
+            targetRatios = raw ? JSON.parse(raw) : {};
+        } catch (e) { targetRatios = {}; }
+    }
+    function saveTargetRatios() {
+        try { localStorage.setItem(TARGET_RATIO_STORAGE_KEY, JSON.stringify(targetRatios)); } catch (e) {}
+    }
+
+    function renderTargetRatioInputs(combined) {
+        const container = document.getElementById('allocator-target-inputs');
+        if (combined.length === 0) {
+            container.innerHTML = `<div class="text-center text-slate-400 text-xs py-2">보유 종목이나 안전자산을 먼저 추가해주세요.</div>`;
+            return;
+        }
+        container.innerHTML = combined.map(item => `
+            <div class="flex items-center justify-between gap-2 text-xs">
+                <span class="text-slate-700 min-w-0 flex-1 truncate">${item.name}</span>
+                <input type="number" min="0" step="1" inputmode="numeric" data-target-ratio-name="${item.name}"
+                    value="${targetRatios[item.name] != null ? targetRatios[item.name] : ''}" placeholder="비율"
+                    class="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-right focus:outline-none focus:ring-2 focus:ring-rose-500">
+            </div>`).join('');
+        container.querySelectorAll('[data-target-ratio-name]').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const name = e.target.dataset.targetRatioName;
+                const val = parseFloat(e.target.value);
+                if (!val || val <= 0) delete targetRatios[name];
+                else targetRatios[name] = val;
+                saveTargetRatios();
+                renderTargetRatioCompare(combined);
+            });
+        });
+    }
+
+    function renderTargetRatioCompare(combined) {
+        const card = document.getElementById('allocator-target-compare-card');
+        const activeEntries = combined.filter(item => targetRatios[item.name] > 0);
+        if (activeEntries.length < 2) {
+            card.classList.add('hidden');
+            return;
+        }
+        card.classList.remove('hidden');
+        const targetSum = activeEntries.reduce((s, item) => s + targetRatios[item.name], 0);
+        const totalCombined = combined.reduce((s, item) => s + item.amount, 0);
+
+        document.getElementById('allocator-target-compare').innerHTML = activeEntries.map(item => {
+            const targetPct = (targetRatios[item.name] / targetSum) * 100;
+            const currentPct = totalCombined > 0 ? (item.amount / totalCombined) * 100 : 0;
+            const targetAmount = Math.round(totalCombined * targetPct / 100);
+            const gapAmount = targetAmount - item.amount; // 양수 = 부족(더 사야 함), 음수 = 초과
+            const statusColor = gapAmount > 100 ? 'text-sky-500' : (gapAmount < -100 ? 'text-rose-500' : 'text-slate-400');
+            const statusText = gapAmount > 100 ? `부족 ${gapAmount.toLocaleString()}원` : (gapAmount < -100 ? `초과 ${Math.abs(gapAmount).toLocaleString()}원` : '목표에 근접함');
+            return `
+                <div class="border-b border-slate-50 last:border-0 pb-3 last:pb-0">
+                    <div class="flex items-center justify-between text-xs mb-1.5">
+                        <span class="font-bold text-slate-800">${item.name}</span>
+                        <span class="text-slate-500">현재 ${currentPct.toFixed(1)}% <span class="text-slate-300">/</span> 목표 ${targetPct.toFixed(1)}%</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden relative">
+                        <div class="h-2 rounded-full bg-indigo-400" style="width:${Math.min(100, currentPct)}%"></div>
+                        <div class="absolute top-0 bottom-0 w-0.5 bg-slate-700" style="left:${Math.min(100, targetPct)}%" title="목표 지점"></div>
+                    </div>
+                    <div class="flex items-center justify-between mt-1">
+                        <span class="text-[10px] ${statusColor} font-semibold">${statusText}</span>
+                        <span class="text-[10px] text-slate-400">목표금액 ${targetAmount.toLocaleString()}원</span>
+                    </div>
+                </div>`;
+        }).join('');
     }
 
     function getStockHoldingSums() {
@@ -2840,6 +2947,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         const safeTotal = safeAssetItems.reduce((s, item) => s + item.amount, 0);
         document.getElementById('allocator-total-summary').textContent =
             `보유 종목 ${stockTotal.toLocaleString()}원 + 안전자산 ${safeTotal.toLocaleString()}원 = 합계 ${(stockTotal + safeTotal).toLocaleString()}원`;
+        renderTargetRatioInputs(combined);
+        renderTargetRatioCompare(combined);
         renderAllocatorTreemap(combined);
         safeCreateIcons();
     }
