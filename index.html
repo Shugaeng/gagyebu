@@ -304,10 +304,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             </div>
             <div class="flex space-x-1.5 border-b border-slate-100 pb-2.5 mb-3 text-xs font-medium text-slate-500">
                 <button id="filter-all" class="px-2.5 py-1 rounded-full bg-slate-800 text-white text-[11px]">전체</button>
+                <button id="filter-category" class="px-2.5 py-1 rounded-full hover:bg-slate-100 text-[11px]">카테고리별</button>
                 <button id="filter-expense" class="px-2.5 py-1 rounded-full hover:bg-slate-100 text-[11px]">지출만</button>
                 <button id="filter-income" class="px-2.5 py-1 rounded-full hover:bg-slate-100 text-[11px]">수입만</button>
             </div>
             <div id="transaction-list" class="divide-y divide-slate-100"></div>
+            <div id="transaction-category-view" class="hidden space-y-3"></div>
         </div>
     </section>
 
@@ -1825,6 +1827,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         });
 
         document.getElementById('filter-all').addEventListener('click', (e) => setFilter('all', e.target));
+        document.getElementById('filter-category').addEventListener('click', (e) => setFilter('category', e.target));
         document.getElementById('filter-expense').addEventListener('click', (e) => setFilter('expense', e.target));
         document.getElementById('filter-income').addEventListener('click', (e) => setFilter('income', e.target));
 
@@ -1852,7 +1855,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     function setFilter(filterType, targetBtn) {
         activeFilter = filterType;
         txPageSize = PAGE_SIZE;
-        ['filter-all', 'filter-expense', 'filter-income'].forEach(id => {
+        ['filter-all', 'filter-category', 'filter-expense', 'filter-income'].forEach(id => {
             document.getElementById(id).className = "px-2.5 py-1 rounded-full hover:bg-slate-100 text-[11px] text-slate-500";
         });
         targetBtn.className = "px-2.5 py-1 rounded-full bg-slate-800 text-white text-[11px]";
@@ -2302,8 +2305,49 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         container.appendChild(btn);
     }
 
+    function renderCategoryBreakdown(allMonthItems) {
+        const container = document.getElementById('transaction-category-view');
+        const expenseItems = allMonthItems.filter(t => t.type === 'expense');
+        if (expenseItems.length === 0) {
+            container.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs">이번 달 지출 내역이 없습니다.</div>`;
+            return;
+        }
+        const byCat = {};
+        expenseItems.forEach(t => {
+            if (!byCat[t.category]) byCat[t.category] = { total: 0, count: 0 };
+            byCat[t.category].total += t.amount;
+            byCat[t.category].count++;
+        });
+        const entries = Object.entries(byCat).sort((a, b) => b[1].total - a[1].total);
+        const totalExpense = entries.reduce((s, [, v]) => s + v.total, 0);
+        const maxTotal = entries[0][1].total;
+        container.innerHTML = entries.map(([cat, data], i) => {
+            const pct = totalExpense > 0 ? (data.total / totalExpense * 100) : 0;
+            const barPct = maxTotal > 0 ? (data.total / maxTotal * 100) : 0;
+            const color = TREEMAP_COLORS[i % TREEMAP_COLORS.length];
+            return `
+                <div class="bg-slate-50/60 rounded-xl p-3 border border-slate-100">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                            <span class="w-2 h-2 rounded-full shrink-0" style="background:${color}"></span>
+                            <span class="text-xs font-bold text-slate-800">${cat}</span>
+                            <span class="text-[10px] text-slate-400 shrink-0">${data.count}건</span>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <span class="text-xs font-bold text-slate-900">${data.total.toLocaleString()}원</span>
+                            <span class="text-[10px] text-slate-400 ml-1">${pct.toFixed(1)}%</span>
+                        </div>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                        <div class="h-1.5 rounded-full" style="width:${barPct}%; background:${color}"></div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
     function renderTransactionsList() {
         const listContainer = document.getElementById('transaction-list');
+        const categoryView = document.getElementById('transaction-category-view');
         listContainer.innerHTML = '';
         const allMonthItems = getFilteredMonthTransactions();
         let monthIncome = 0, monthExpense = 0;
@@ -2315,6 +2359,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         savingsEl.textContent = `${savings >= 0 ? '' : '-'}${Math.abs(savings).toLocaleString()}원`;
         savingsEl.classList.remove('text-indigo-600', 'text-rose-500');
         savingsEl.classList.add(savings >= 0 ? 'text-indigo-600' : 'text-rose-500');
+
+        if (activeFilter === 'category') {
+            listContainer.classList.add('hidden');
+            categoryView.classList.remove('hidden');
+            const expenseCount = allMonthItems.filter(t => t.type === 'expense').length;
+            document.getElementById('transaction-count').textContent = `총 ${expenseCount}건`;
+            renderCategoryBreakdown(allMonthItems);
+            return;
+        }
+        listContainer.classList.remove('hidden');
+        categoryView.classList.add('hidden');
 
         let currentMonthItems = allMonthItems;
         if (activeFilter === 'expense') currentMonthItems = currentMonthItems.filter(t => t.type === 'expense');
