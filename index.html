@@ -2718,7 +2718,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             } else {
                 const visibleKeys = sortedKeys.slice(0, stockMonthPageSize);
                 visibleKeys.forEach(ym => {
-                    const items = groups[ym];
+                    const items = groups[ym].slice().sort((a, b) => {
+                        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+                        return a.id < b.id ? 1 : (a.id > b.id ? -1 : 0);
+                    });
                     let monthBuySum = 0, monthSellSum = 0;
                     items.forEach(s => { if (s.type === '매수') monthBuySum += s.amount; else monthSellSum += s.amount; });
                     const headerEl = document.createElement('div');
