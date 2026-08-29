@@ -2318,6 +2318,18 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             byCat[t.category].total += t.amount;
             byCat[t.category].count++;
         });
+
+        // 전월 같은 카테고리 지출 합계 계산 (전월대비 비교용)
+        const prevMonthDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1);
+        const prevByCat = {};
+        transactions.forEach(t => {
+            if (t.type !== 'expense' || !t.date) return;
+            const d = new Date(t.date);
+            if (d.getFullYear() === prevMonthDate.getFullYear() && d.getMonth() === prevMonthDate.getMonth()) {
+                prevByCat[t.category] = (prevByCat[t.category] || 0) + t.amount;
+            }
+        });
+
         const entries = Object.entries(byCat).sort((a, b) => b[1].total - a[1].total);
         const totalExpense = entries.reduce((s, [, v]) => s + v.total, 0);
         const maxTotal = entries[0][1].total;
@@ -2325,6 +2337,19 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             const pct = totalExpense > 0 ? (data.total / totalExpense * 100) : 0;
             const barPct = maxTotal > 0 ? (data.total / maxTotal * 100) : 0;
             const color = TREEMAP_COLORS[i % TREEMAP_COLORS.length];
+
+            const prevTotal = prevByCat[cat] || 0;
+            let compareHtml;
+            if (prevTotal > 0) {
+                const diffWon = data.total - prevTotal;
+                const diffPct = (diffWon / prevTotal) * 100;
+                const diffColor = diffWon >= 0 ? 'text-rose-500' : 'text-sky-500';
+                const sign = diffWon >= 0 ? '+' : '';
+                compareHtml = `<span class="${diffColor} font-medium">전월대비 ${sign}${diffPct.toFixed(1)}% (${sign}${diffWon.toLocaleString()}원)</span>`;
+            } else {
+                compareHtml = `<span class="text-slate-400">전월엔 지출 없음</span>`;
+            }
+
             return `
                 <div class="bg-slate-50/60 rounded-xl p-3 border border-slate-100">
                     <div class="flex items-center justify-between mb-1.5">
@@ -2341,6 +2366,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                     <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                         <div class="h-1.5 rounded-full" style="width:${barPct}%; background:${color}"></div>
                     </div>
+                    <div class="text-[10px] mt-1.5">${compareHtml}</div>
                 </div>`;
         }).join('');
     }
