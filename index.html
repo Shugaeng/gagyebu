@@ -2479,15 +2479,18 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         </span>
                         <div class="flex items-center">
                             ${isTradeLinked ? `<span class="text-[9px] text-slate-300 px-1">매매일지에서 수정</span>` : `
-                            <button data-edit-asset-log="${log.id}" class="text-slate-400 hover:text-indigo-500 transition p-1">${PENCIL_SVG}</button>
-                            <button data-delete-asset-log="${log.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>`}
+                            <button data-edit-asset-log="${log.id}" class="text-slate-400 hover:text-indigo-500 transition p-1">${PENCIL_SVG}</button>`}
+                            <button data-delete-asset-log="${log.id}" data-trade-linked="${isTradeLinked ? '1' : '0'}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
                         </div>
                     </div>`;
                 historyListContainer.appendChild(el);
             });
             historyListContainer.querySelectorAll('[data-edit-asset-log]').forEach(btn => btn.addEventListener('click', () => startEditAsset(btn.dataset.editAssetLog)));
             historyListContainer.querySelectorAll('[data-delete-asset-log]').forEach(btn => btn.addEventListener('click', () => {
-                showAppConfirm('이 자산 기록을 삭제하시겠습니까?', () => deleteAsset(btn.dataset.deleteAssetLog));
+                const msg = btn.dataset.tradeLinked === '1'
+                    ? '이 항목은 매매일지 연동 기록이에요. 삭제해도 매매일지의 실제 거래 내역에는 영향 없어요 (이 자산 스냅샷만 지워져요). 삭제할까요?'
+                    : '이 자산 기록을 삭제하시겠습니까?';
+                showAppConfirm(msg, () => deleteAsset(btn.dataset.deleteAssetLog));
             }));
             appendLoadMoreButton(historyListContainer, monthlyAssetLogs.length, assetHistoryPageSize, () => {
                 assetHistoryPageSize += PAGE_SIZE;
