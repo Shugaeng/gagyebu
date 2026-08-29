@@ -404,6 +404,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                     <label class="block text-[11px] font-semibold text-slate-400 mb-1">투자원금 (원, 비워두면 직전 기록값 승계)</label>
                     <input type="number" id="asset-principal" placeholder="비워두면 자동으로 이어받습니다" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                 </div>
+                <div class="w-full">
+                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">메모</label>
+                    <input type="text" id="asset-memo" placeholder="예: 만기 2027-03, 청약저축용" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                </div>
                 <p class="text-[10px] text-slate-400 leading-relaxed px-0.5">💡 같은 항목명으로 다시 등록하면 "최신 평가금액 업데이트"로 처리되어 이전 값과 중복 합산되지 않습니다.</p>
                 <div class="flex gap-2">
                     <button type="submit" id="asset-form-submit-btn" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-2xs">자산 등록하기</button>
@@ -544,7 +548,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-400 mb-1">종류</label>
                         <select id="allocator-type" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                            <option value="현금">현금</option>
+                            <option value="현금, 예금 등">현금, 예금 등</option>
                             <option value="채권">채권</option>
                             <option value="금">금</option>
                             <option value="__custom">+ 직접 입력</option>
@@ -556,6 +560,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         <input type="number" id="allocator-amount" placeholder="0" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     </div>
                 </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-400 mb-1">메모</label>
+                    <input type="text" id="allocator-memo" placeholder="예: 비상금 통장, 국고채 3년물" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
                 <div class="flex gap-2">
                     <button type="submit" id="allocator-form-submit-btn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-2xs">추가하기</button>
                     <button type="button" id="allocator-form-cancel-btn" class="hidden px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium py-2.5 rounded-xl transition">취소</button>
@@ -565,7 +573,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         </div>
 
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <h3 class="text-xs font-bold text-slate-800 mb-3 flex items-center space-x-1.5"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i><span>전체 자산배분 비중</span></h3>
+            <h3 class="text-xs font-bold text-slate-800 mb-1 flex items-center space-x-1.5"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i><span>전체 자산배분 비중</span></h3>
+            <div id="allocator-total-summary" class="text-[10px] text-slate-400 mb-3">보유 종목 0원 + 안전자산 0원 = 합계 0원</div>
             <div id="allocatorTreemap" class="relative w-full rounded-xl overflow-hidden" style="height: 260px;"></div>
             <div id="allocatorEmpty" class="hidden text-center text-slate-400 text-xs py-8">아직 계산할 데이터가 없어요. 매매일지에 보유 종목을 추가하거나, 안전자산을 입력해보세요.</div>
         </div>
@@ -1481,15 +1490,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 ? (document.getElementById('allocator-type-custom').value.trim() || '기타')
                 : typeSelect.value;
             const amount = parseInt(document.getElementById('allocator-amount').value, 10);
+            const memo = document.getElementById('allocator-memo').value.trim();
             if (!amount || amount <= 0) { showAppToast('금액을 입력해주세요.'); return; }
             if (editingSafeAssetId) {
                 const target = safeAssetItems.find(item => item.id === editingSafeAssetId);
-                if (target) { target.name = name; target.amount = amount; }
+                if (target) { target.name = name; target.amount = amount; target.memo = memo; }
                 exitEditSafeAsset();
             } else {
-                safeAssetItems.push({ id: Date.now().toString(), name, amount });
+                safeAssetItems.push({ id: Date.now().toString(), name, amount, memo });
                 document.getElementById('allocator-amount').value = '';
                 document.getElementById('allocator-type-custom').value = '';
+                document.getElementById('allocator-memo').value = '';
             }
             saveSafeAssets();
             renderAllocatorTab();
@@ -1687,13 +1698,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             const date = document.getElementById('asset-date').value;
             const amount = parseInt(document.getElementById('asset-amount').value, 10);
             const principalInput = document.getElementById('asset-principal').value;
+            const memo = document.getElementById('asset-memo').value.trim();
 
             if (editingAssetId) {
                 const target = assets.find(a => a.id === editingAssetId);
                 if (target) {
                     let principal = principalInput.trim() !== '' ? parseInt(principalInput, 10) : (target.principal || target.amount);
                     if (NO_RETURN_BADGE_TYPES.indexOf(type) !== -1) principal = amount; // 예금/현금 등은 수익 개념이 없어 원금=평가금액으로 고정
-                    target.type = type; target.name = name; target.date = date; target.amount = amount; target.principal = principal;
+                    target.type = type; target.name = name; target.date = date; target.amount = amount; target.principal = principal; target.memo = memo;
                     target.needsValuation = false; // 평가금액을 직접 입력/수정했으므로 알림 해제
                 }
                 exitAssetEditMode();
@@ -1708,13 +1720,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))[0];
                     principal = priorSameItem ? (priorSameItem.principal || priorSameItem.amount) : amount;
                 }
-                assets.push({ id: Date.now().toString(), type, name, amount, principal, date });
+                assets.push({ id: Date.now().toString(), type, name, amount, principal, date, memo });
             }
             saveAll();
             render();
 
             document.getElementById('asset-amount').value = '';
             document.getElementById('asset-principal').value = '';
+            document.getElementById('asset-memo').value = '';
             if (document.getElementById('asset-type').value === '예금/파킹통장') {
                 const bankVal = document.getElementById('asset-bank-select').value;
                 updateAssetNameFieldMode(bankVal === '__custom' ? '' : bankVal);
@@ -1928,6 +1941,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('asset-date').value = target.date || '';
         document.getElementById('asset-amount').value = target.amount;
         document.getElementById('asset-principal').value = target.principal != null ? target.principal : '';
+        document.getElementById('asset-memo').value = target.memo || '';
 
         document.getElementById('asset-edit-badge').classList.remove('hidden');
         document.getElementById('asset-form-submit-btn').textContent = '수정 완료';
@@ -1945,6 +1959,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         updateAssetNameFieldMode('');
         document.getElementById('asset-amount').value = '';
         document.getElementById('asset-principal').value = '';
+        document.getElementById('asset-memo').value = '';
         setDefaultDate();
     }
 
@@ -2409,6 +2424,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                                 <span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-semibold shrink-0">${log.type}</span>
                             </div>
                             <div class="text-[10px] text-slate-400 mt-0.5">${log.date}</div>
+                            ${log.memo ? `<div class="text-[10px] text-slate-400 mt-0.5">${log.memo}</div>` : ''}
                         </div>
                     </div>
                     <div class="flex flex-col items-end gap-1 shrink-0">
@@ -2539,6 +2555,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             customInput.value = target.name;
         }
         document.getElementById('allocator-amount').value = target.amount;
+        document.getElementById('allocator-memo').value = target.memo || '';
 
         document.getElementById('allocator-edit-badge').classList.remove('hidden');
         document.getElementById('allocator-form-submit-btn').textContent = '수정 완료';
@@ -2551,10 +2568,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('allocator-edit-badge').classList.add('hidden');
         document.getElementById('allocator-form-submit-btn').textContent = '추가하기';
         document.getElementById('allocator-form-cancel-btn').classList.add('hidden');
-        document.getElementById('allocator-type').value = '현금';
+        document.getElementById('allocator-type').value = '현금, 예금 등';
         document.getElementById('allocator-type-custom').classList.add('hidden');
         document.getElementById('allocator-type-custom').value = '';
         document.getElementById('allocator-amount').value = '';
+        document.getElementById('allocator-memo').value = '';
     }
 
     const TREEMAP_COLORS = ['#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
@@ -2639,10 +2657,13 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             safeListEl.innerHTML = `<div class="text-center text-slate-400 text-xs py-4">추가된 안전자산이 없어요.</div>`;
         } else {
             safeListEl.innerHTML = safeAssetItems.map(item => `
-                <div class="flex items-center justify-between py-2 text-xs ${editingSafeAssetId === item.id ? 'bg-amber-50/70 -mx-1 px-1 rounded-lg ring-1 ring-amber-200' : ''}">
-                    <span class="text-slate-700 font-medium">${item.name}</span>
-                    <div class="flex items-center gap-1">
-                        <span class="font-semibold text-emerald-600 mr-1">${item.amount.toLocaleString()}원</span>
+                <div class="flex items-start justify-between py-2 gap-2 text-xs ${editingSafeAssetId === item.id ? 'bg-amber-50/70 -mx-1 px-1 rounded-lg ring-1 ring-amber-200' : ''}">
+                    <div class="min-w-0">
+                        <span class="text-slate-700 font-medium">${item.name}</span>
+                        ${item.memo ? `<div class="text-[10px] text-slate-400 mt-0.5">${item.memo}</div>` : ''}
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <span class="font-semibold text-emerald-600 mr-1 whitespace-nowrap">${item.amount.toLocaleString()}원</span>
                         <button data-edit-safe-asset="${item.id}" class="text-slate-400 hover:text-indigo-500 transition p-1">${PENCIL_SVG}</button>
                         <button data-delete-safe-asset="${item.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
                     </div>
@@ -2663,6 +2684,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         }
 
         const combined = stockHoldings.concat(safeAssetItems.map(item => ({ name: item.name, amount: item.amount })));
+        const stockTotal = stockHoldings.reduce((s, h) => s + h.amount, 0);
+        const safeTotal = safeAssetItems.reduce((s, item) => s + item.amount, 0);
+        document.getElementById('allocator-total-summary').textContent =
+            `보유 종목 ${stockTotal.toLocaleString()}원 + 안전자산 ${safeTotal.toLocaleString()}원 = 합계 ${(stockTotal + safeTotal).toLocaleString()}원`;
         renderAllocatorTreemap(combined);
         safeCreateIcons();
     }
