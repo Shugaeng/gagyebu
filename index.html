@@ -535,7 +535,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         </div>
 
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
-            <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="shield" class="w-4 h-4 text-emerald-500"></i><span>안전자산 추가</span></h3>
+            <h3 class="text-xs font-bold text-slate-800 flex items-center justify-between">
+                <span class="flex items-center space-x-1.5"><i data-lucide="shield" class="w-4 h-4 text-emerald-500"></i><span>안전자산 추가</span></span>
+                <span id="allocator-edit-badge" class="hidden text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">수정 중</span>
+            </h3>
             <form id="allocator-form" class="space-y-2.5">
                 <div class="grid grid-cols-2 gap-2.5">
                     <div>
@@ -553,14 +556,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         <input type="number" id="allocator-amount" placeholder="0" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     </div>
                 </div>
-                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-2xs">추가하기</button>
+                <div class="flex gap-2">
+                    <button type="submit" id="allocator-form-submit-btn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-2xs">추가하기</button>
+                    <button type="button" id="allocator-form-cancel-btn" class="hidden px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium py-2.5 rounded-xl transition">취소</button>
+                </div>
             </form>
             <div id="allocator-safe-list" class="divide-y divide-slate-100"></div>
         </div>
 
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <h3 class="text-xs font-bold text-slate-800 mb-3 flex items-center space-x-1.5"><i data-lucide="pie-chart" class="w-4 h-4 text-indigo-500"></i><span>전체 자산배분 비중</span></h3>
-            <div class="relative flex items-center justify-center min-h-[200px]"><canvas id="allocatorChart"></canvas></div>
+            <h3 class="text-xs font-bold text-slate-800 mb-3 flex items-center space-x-1.5"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i><span>전체 자산배분 비중</span></h3>
+            <div id="allocatorTreemap" class="relative w-full rounded-xl overflow-hidden" style="height: 260px;"></div>
             <div id="allocatorEmpty" class="hidden text-center text-slate-400 text-xs py-8">아직 계산할 데이터가 없어요. 매매일지에 보유 종목을 추가하거나, 안전자산을 입력해보세요.</div>
         </div>
     </section>
@@ -809,7 +815,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     let targetGoalDate = '2028-05-31';
     let stockRolloverProcessedMonths = []; // 매매일지 -> 자산기록 자동 반영 완료된 'YYYY-MM' 목록
     let safeAssetItems = []; // 비중계산기 탭: 현금/채권/금 등 안전자산 (로컬 전용)
-    let allocatorChartInstance = null;
+    let editingSafeAssetId = null;
     const STOCK_ACCOUNT_TO_ASSET_TYPE = { '연금저축': '연금저축', 'ISA': '주식(ISA)', 'IRP': '주식(IRP)' };
 
     let assetTrendChartInstance = null;
@@ -1302,6 +1308,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         if (currentTab === 'stocks' && tabName !== 'stocks' && editingStockId) exitStockEditMode();
         if (currentTab === 'assets' && tabName !== 'assets' && editingAssetId) exitAssetEditMode();
         if (currentTab === 'transactions' && tabName !== 'transactions' && editingTransactionId) exitTransactionEditMode();
+        if (currentTab === 'allocator' && tabName !== 'allocator' && editingSafeAssetId) exitEditSafeAsset();
         currentTab = tabName;
         document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
         document.getElementById(`tab-${tabName}`).classList.remove('hidden');
@@ -1475,11 +1482,20 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 : typeSelect.value;
             const amount = parseInt(document.getElementById('allocator-amount').value, 10);
             if (!amount || amount <= 0) { showAppToast('금액을 입력해주세요.'); return; }
-            safeAssetItems.push({ id: Date.now().toString(), name, amount });
+            if (editingSafeAssetId) {
+                const target = safeAssetItems.find(item => item.id === editingSafeAssetId);
+                if (target) { target.name = name; target.amount = amount; }
+                exitEditSafeAsset();
+            } else {
+                safeAssetItems.push({ id: Date.now().toString(), name, amount });
+                document.getElementById('allocator-amount').value = '';
+                document.getElementById('allocator-type-custom').value = '';
+            }
             saveSafeAssets();
-            document.getElementById('allocator-amount').value = '';
-            document.getElementById('allocator-type-custom').value = '';
             renderAllocatorTab();
+        });
+        document.getElementById('allocator-form-cancel-btn').addEventListener('click', () => {
+            exitEditSafeAsset();
         });
         document.getElementById('asset-type').addEventListener('change', () => updateAssetNameFieldMode());
         document.getElementById('asset-bank-select').addEventListener('change', () => {
@@ -2505,6 +2521,105 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         return Object.keys(sums).filter(item => sums[item] > 0).map(item => ({ name: item, amount: sums[item] }));
     }
 
+    function startEditSafeAsset(id) {
+        const target = safeAssetItems.find(item => item.id === id);
+        if (!target) return;
+        editingSafeAssetId = id;
+
+        const typeSelect = document.getElementById('allocator-type');
+        const customInput = document.getElementById('allocator-type-custom');
+        const knownValues = Array.from(typeSelect.options).map(o => o.value).filter(v => v !== '__custom');
+        if (knownValues.indexOf(target.name) !== -1) {
+            typeSelect.value = target.name;
+            customInput.classList.add('hidden');
+            customInput.value = '';
+        } else {
+            typeSelect.value = '__custom';
+            customInput.classList.remove('hidden');
+            customInput.value = target.name;
+        }
+        document.getElementById('allocator-amount').value = target.amount;
+
+        document.getElementById('allocator-edit-badge').classList.remove('hidden');
+        document.getElementById('allocator-form-submit-btn').textContent = '수정 완료';
+        document.getElementById('allocator-form-cancel-btn').classList.remove('hidden');
+        document.getElementById('allocator-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function exitEditSafeAsset() {
+        editingSafeAssetId = null;
+        document.getElementById('allocator-edit-badge').classList.add('hidden');
+        document.getElementById('allocator-form-submit-btn').textContent = '추가하기';
+        document.getElementById('allocator-form-cancel-btn').classList.add('hidden');
+        document.getElementById('allocator-type').value = '현금';
+        document.getElementById('allocator-type-custom').classList.add('hidden');
+        document.getElementById('allocator-type-custom').value = '';
+        document.getElementById('allocator-amount').value = '';
+    }
+
+    const TREEMAP_COLORS = ['#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+
+    // 간단한 재귀형 슬라이스 트리맵: 값 절반에 가까운 지점에서 갈라 가로/세로를 번갈아 분할
+    function computeTreemapBoxes(items, x, y, w, h, horizontal) {
+        if (items.length === 0) return [];
+        if (items.length === 1) return [{ ...items[0], x, y, w, h }];
+        const total = items.reduce((s, it) => s + it.amount, 0);
+        let cum = 0, splitIdx = 1;
+        for (let i = 0; i < items.length; i++) {
+            cum += items[i].amount;
+            if (cum >= total / 2) { splitIdx = i + 1; break; }
+        }
+        splitIdx = Math.max(1, Math.min(items.length - 1, splitIdx));
+        const left = items.slice(0, splitIdx);
+        const right = items.slice(splitIdx);
+        const leftTotal = left.reduce((s, it) => s + it.amount, 0);
+        const ratio = total > 0 ? leftTotal / total : 0.5;
+        if (horizontal) {
+            const w1 = w * ratio;
+            return computeTreemapBoxes(left, x, y, w1, h, false).concat(computeTreemapBoxes(right, x + w1, y, w - w1, h, false));
+        } else {
+            const h1 = h * ratio;
+            return computeTreemapBoxes(left, x, y, w, h1, true).concat(computeTreemapBoxes(right, x, y + h1, w, h - h1, true));
+        }
+    }
+
+    function renderAllocatorTreemap(combined) {
+        const container = document.getElementById('allocatorTreemap');
+        const emptyEl = document.getElementById('allocatorEmpty');
+        container.innerHTML = '';
+        if (combined.length === 0) {
+            container.style.display = 'none';
+            emptyEl.classList.remove('hidden');
+            return;
+        }
+        container.style.display = 'block';
+        emptyEl.classList.add('hidden');
+
+        const sorted = combined.slice().sort((a, b) => b.amount - a.amount);
+        const total = sorted.reduce((s, it) => s + it.amount, 0);
+        const boxes = computeTreemapBoxes(sorted, 0, 0, 100, 100, true);
+
+        boxes.forEach((box, i) => {
+            const pct = total > 0 ? (box.amount / total) * 100 : 0;
+            const el = document.createElement('div');
+            el.className = 'absolute flex flex-col items-center justify-center text-center p-1.5 overflow-hidden';
+            el.style.left = box.x + '%';
+            el.style.top = box.y + '%';
+            el.style.width = box.w + '%';
+            el.style.height = box.h + '%';
+            el.style.background = TREEMAP_COLORS[i % TREEMAP_COLORS.length];
+            el.style.border = '2px solid #ffffff';
+            el.style.boxSizing = 'border-box';
+            const isSmall = box.w < 20 || box.h < 18;
+            el.innerHTML = isSmall
+                ? `<span class="text-white font-bold text-[10px] leading-tight drop-shadow">${pct.toFixed(0)}%</span>`
+                : `<span class="text-white font-bold text-xs leading-tight drop-shadow">${box.name}</span>
+                   <span class="text-white/90 text-[10px] mt-0.5 drop-shadow">${box.amount.toLocaleString()}원</span>
+                   <span class="text-white/90 text-[10px] font-semibold drop-shadow">${pct.toFixed(1)}%</span>`;
+            container.appendChild(el);
+        });
+    }
+
     function renderAllocatorTab() {
         const stockHoldings = getStockHoldingSums();
 
@@ -2524,43 +2639,31 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             safeListEl.innerHTML = `<div class="text-center text-slate-400 text-xs py-4">추가된 안전자산이 없어요.</div>`;
         } else {
             safeListEl.innerHTML = safeAssetItems.map(item => `
-                <div class="flex items-center justify-between py-2 text-xs">
+                <div class="flex items-center justify-between py-2 text-xs ${editingSafeAssetId === item.id ? 'bg-amber-50/70 -mx-1 px-1 rounded-lg ring-1 ring-amber-200' : ''}">
                     <span class="text-slate-700 font-medium">${item.name}</span>
                     <div class="flex items-center gap-1">
-                        <span class="font-semibold text-emerald-600">${item.amount.toLocaleString()}원</span>
+                        <span class="font-semibold text-emerald-600 mr-1">${item.amount.toLocaleString()}원</span>
+                        <button data-edit-safe-asset="${item.id}" class="text-slate-400 hover:text-indigo-500 transition p-1">${PENCIL_SVG}</button>
                         <button data-delete-safe-asset="${item.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
                     </div>
                 </div>`).join('');
+            safeListEl.querySelectorAll('[data-edit-safe-asset]').forEach(btn => {
+                btn.addEventListener('click', () => startEditSafeAsset(btn.dataset.editSafeAsset));
+            });
             safeListEl.querySelectorAll('[data-delete-safe-asset]').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    safeAssetItems = safeAssetItems.filter(item => item.id !== btn.dataset.deleteSafeAsset);
-                    saveSafeAssets();
-                    renderAllocatorTab();
-                    safeCreateIcons();
+                    showAppConfirm('이 안전자산 항목을 삭제하시겠습니까?', () => {
+                        if (editingSafeAssetId === btn.dataset.deleteSafeAsset) exitEditSafeAsset();
+                        safeAssetItems = safeAssetItems.filter(item => item.id !== btn.dataset.deleteSafeAsset);
+                        saveSafeAssets();
+                        renderAllocatorTab();
+                    });
                 });
             });
         }
 
         const combined = stockHoldings.concat(safeAssetItems.map(item => ({ name: item.name, amount: item.amount })));
-        const canvas = document.getElementById('allocatorChart');
-        const emptyEl = document.getElementById('allocatorEmpty');
-        if (allocatorChartInstance) { allocatorChartInstance.destroy(); allocatorChartInstance = null; }
-        if (!ChartAvailable() || combined.length === 0) {
-            canvas.style.display = 'none';
-            emptyEl.classList.remove('hidden');
-        } else {
-            canvas.style.display = 'block';
-            emptyEl.classList.add('hidden');
-            allocatorChartInstance = new Chart(canvas.getContext('2d'), {
-                type: 'doughnut',
-                data: {
-                    labels: combined.map(c => c.name),
-                    datasets: [{ data: combined.map(c => c.amount), backgroundColor: ['#6366f1', '#f43f5e', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ec4899'], borderWidth: 2, borderColor: '#ffffff' }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }, cutout: '65%' },
-                plugins: [donutPercentLabelPlugin]
-            });
-        }
+        renderAllocatorTreemap(combined);
         safeCreateIcons();
     }
 
