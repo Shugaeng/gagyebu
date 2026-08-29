@@ -1244,6 +1244,29 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         return { qty, avgCost };
     }
 
+    // 거래 기록 시점의 단가를 "현재가"로 삼아 자산기록에 즉시 반영 (매월말 평가금액 입력 알림과 별개로, 거래할 때마다 자동 갱신)
+    function syncStockValuationToAssets(account, item, referenceUnitPrice, tradeDateStr) {
+        const todayObj = new Date();
+        const todayStr = todayObj.getFullYear() + '-' + String(todayObj.getMonth() + 1).padStart(2, '0') + '-' + String(todayObj.getDate()).padStart(2, '0');
+        const asOfDate = tradeDateStr && tradeDateStr > todayStr ? tradeDateStr : todayStr; // 미래 날짜로 기록했으면 그 날짜 기준
+        const { qty, avgCost } = computeHoldingAsOf(account, item, asOfDate);
+        if (qty <= 0) return; // 전량 매도 등 보유수량이 없으면 자동 반영하지 않음
+        const assetType = STOCK_ACCOUNT_TO_ASSET_TYPE[account] || '연금저축';
+        const principal = Math.round(qty * avgCost);
+        const amount = Math.round(qty * referenceUnitPrice);
+        const existing = assets.find(a => a.type === assetType && a.name === item && a.date === asOfDate);
+        if (existing) {
+            existing.amount = amount;
+            existing.principal = principal;
+            existing.needsValuation = false;
+        } else {
+            assets.push({
+                id: `trade-sync-${asOfDate}-${account}-${item}-${Date.now()}`,
+                type: assetType, name: item, date: asOfDate, amount, principal, needsValuation: false
+            });
+        }
+    }
+
     function runStockRollover(includeCurrentMonth) {
         if (!stocks.length) return;
         const now = new Date();
@@ -1763,6 +1786,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             } else {
                 stocks.push({ id: Date.now().toString(), type: stockTradeType, item, account, date, amount, unitPrice, qty, memo });
             }
+            syncStockValuationToAssets(account, item, unitPrice, date); // 방금 기록한 단가로 자산기록에 즉시 반영
             saveAll();
             render(); // 매매일지 등록/수정은 자산탭/대시보드에도 영향을 주므로 전체 재렌더링
 
