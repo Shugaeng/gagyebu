@@ -2342,6 +2342,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     // 이 자산 구분들은 "단순 입출금/이동"만 있고 자체적인 수익 개념이 없어서 변동률 배지를 표시하지 않음
     const NO_RETURN_BADGE_TYPES = ['예금/파킹통장', '현금', '보증금', '이자', '배당금', '대출/부채'];
 
+    // 매매일지에서 거래 기록할 때 자동 반영된 자산기록(trade-sync-)은 자산기록 탭에서 직접 수정/삭제할 수 없음
+    // (매매일지에서 해당 거래를 수정/삭제하면 여기도 자동으로 다시 반영됨)
+    // 단, 매월말 롤오버로 생성된 "평가금액 입력 필요" 항목(rollover-)은 실제 시세를 넣을 방법이
+    // 자산기록 폼밖에 없으므로 계속 직접 수정 가능하게 둔다.
+    function isTradeLinkedAsset(log) {
+        return typeof log.id === 'string' && log.id.indexOf('trade-sync-') === 0;
+    }
+
     // 직전 기록과 단순 비교하면 "추가 매수(원금 증가)"까지 수익으로 잡혀버리므로,
     // 그 기록 자체의 원금(principal) 대비 평가금액(amount)으로 계산해 진짜 수익률만 반영한다.
     function renderAssetChangeBadge(log) {
@@ -2426,6 +2434,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 const isLiability = log.type === '대출/부채';
                 const badgeColor = ASSET_COLORS[log.type] || 'bg-slate-400';
                 const changeBadge = renderAssetChangeBadge(log);
+                const isTradeLinked = isTradeLinkedAsset(log);
                 const el = document.createElement('div');
                 el.className = `py-2.5 flex items-start justify-between gap-2 hover:bg-slate-50 px-2 rounded-lg transition text-xs ${editingAssetId === log.id ? 'bg-amber-50/70 ring-1 ring-amber-200' : ''}`;
                 el.innerHTML = `
@@ -2435,6 +2444,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="font-medium text-slate-800">${log.name}</span>
                                 <span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-semibold shrink-0">${log.type}</span>
+                                ${isTradeLinked ? `<span class="text-[9px] bg-indigo-50 text-indigo-500 px-1.5 py-0.2 rounded font-semibold shrink-0">🔗 매매일지 연동</span>` : ''}
                             </div>
                             <div class="text-[10px] text-slate-400 mt-0.5">${log.date}</div>
                             ${log.memo ? `<div class="text-[10px] text-slate-400 mt-0.5">${log.memo}</div>` : ''}
@@ -2445,8 +2455,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                             ${changeBadge}<span class="font-bold ${isLiability ? 'text-rose-600' : 'text-slate-900'}">${isLiability ? '-' : '+'}${log.amount.toLocaleString()}원</span>
                         </span>
                         <div class="flex items-center">
+                            ${isTradeLinked ? `<span class="text-[9px] text-slate-300 px-1">매매일지에서 수정</span>` : `
                             <button data-edit-asset-log="${log.id}" class="text-slate-400 hover:text-indigo-500 transition p-1">${PENCIL_SVG}</button>
-                            <button data-delete-asset-log="${log.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
+                            <button data-delete-asset-log="${log.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>`}
                         </div>
                     </div>`;
                 historyListContainer.appendChild(el);
