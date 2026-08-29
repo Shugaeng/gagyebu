@@ -2339,26 +2339,15 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         });
     }
 
-    function getPriorAssetAmount(log) {
-        const sameKeyRecords = assets.filter(a => a.type === log.type && a.name === log.name);
-        const sorted = sameKeyRecords.slice().sort((a, b) => {
-            const da = a.date || '', db = b.date || '';
-            if (da !== db) return da < db ? -1 : 1;
-            return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
-        });
-        const idx = sorted.findIndex(a => a.id === log.id);
-        if (idx <= 0) return null;
-        return sorted[idx - 1].amount;
-    }
-
     // 이 자산 구분들은 "단순 입출금/이동"만 있고 자체적인 수익 개념이 없어서 변동률 배지를 표시하지 않음
     const NO_RETURN_BADGE_TYPES = ['예금/파킹통장', '현금', '보증금', '이자', '배당금', '대출/부채'];
 
+    // 직전 기록과 단순 비교하면 "추가 매수(원금 증가)"까지 수익으로 잡혀버리므로,
+    // 그 기록 자체의 원금(principal) 대비 평가금액(amount)으로 계산해 진짜 수익률만 반영한다.
     function renderAssetChangeBadge(log) {
         if (NO_RETURN_BADGE_TYPES.indexOf(log.type) !== -1) return '';
-        const prior = getPriorAssetAmount(log);
-        if (prior === null || prior === 0) return '';
-        const pct = ((log.amount - prior) / prior) * 100;
+        if (!log.principal || log.principal <= 0) return '';
+        const pct = ((log.amount - log.principal) / log.principal) * 100;
         const colorClass = pct >= 0 ? 'text-rose-500' : 'text-sky-500';
         const sign = pct >= 0 ? '+' : '';
         return `<span class="text-[10px] font-semibold ${colorClass} mr-1">${sign}${pct.toFixed(2)}%</span>`;
