@@ -587,6 +587,16 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hidden" id="allocator-target-compare-card">
             <h3 class="text-xs font-bold text-slate-800 mb-3 flex items-center space-x-1.5"><i data-lucide="scale" class="w-4 h-4 text-indigo-500"></i><span>목표 대비 현황</span></h3>
+
+            <div class="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3 mb-4">
+                <label class="block text-[11px] font-semibold text-indigo-700 mb-1.5">이번 달 투자금 배분 계산 (동시에 여러 종목 살 때)</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="allocator-monthly-cash" placeholder="예: 600000" class="flex-1 bg-white border border-indigo-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button type="button" id="allocator-monthly-calc-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-2 rounded-lg whitespace-nowrap">배분 계산</button>
+                </div>
+                <div id="allocator-monthly-result" class="hidden mt-3 space-y-1.5 pt-3 border-t border-indigo-100"></div>
+            </div>
+
             <div id="allocator-target-compare" class="space-y-3"></div>
         </div>
 
@@ -1543,6 +1553,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('allocator-type').addEventListener('change', (e) => {
             document.getElementById('allocator-type-custom').classList.toggle('hidden', e.target.value !== '__custom');
         });
+        document.getElementById('allocator-monthly-calc-btn').addEventListener('click', renderMonthlyAllocationResult);
         document.getElementById('allocator-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const typeSelect = document.getElementById('allocator-type');
@@ -2752,11 +2763,16 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
         document.getElementById('allocator-target-compare').innerHTML = activeEntries.map(item => {
             const targetPct = (targetRatios[item.name] / targetSum) * 100;
+            const targetFrac = targetPct / 100;
             const currentPct = totalCombined > 0 ? (item.amount / totalCombined) * 100 : 0;
-            const targetAmount = Math.round(totalCombined * targetPct / 100);
-            const gapAmount = targetAmount - item.amount; // 양수 = 부족(더 사야 함), 음수 = 초과
-            const statusColor = gapAmount > 100 ? 'text-sky-500' : (gapAmount < -100 ? 'text-rose-500' : 'text-slate-400');
-            const statusText = gapAmount > 100 ? `부족 ${gapAmount.toLocaleString()}원` : (gapAmount < -100 ? `초과 ${Math.abs(gapAmount).toLocaleString()}원` : '목표에 근접함');
+            const targetAmountNow = Math.round(totalCombined * targetFrac); // 지금 총액 기준 목표금액 (참고용 표시)
+            // 이 종목만 추가로 사서 목표 비율에 정확히 도달하려면 필요한 매수액:
+            // 매수 후 총액(=totalCombined+x) 대비 (item.amount+x)/(totalCombined+x) = targetFrac 을 x에 대해 풀면
+            //   x = (targetFrac*totalCombined - item.amount) / (1 - targetFrac)
+            const rawGap = targetFrac * totalCombined - item.amount;
+            const neededToBuy = targetFrac < 1 ? Math.round(rawGap / (1 - targetFrac)) : rawGap;
+            const statusColor = neededToBuy > 100 ? 'text-sky-500' : (neededToBuy < -100 ? 'text-rose-500' : 'text-slate-400');
+            const statusText = neededToBuy > 100 ? `${neededToBuy.toLocaleString()}원 더 사면 목표 도달` : (neededToBuy < -100 ? `초과 보유 (매도 시 ${Math.abs(neededToBuy).toLocaleString()}원)` : '목표에 근접함');
             return `
                 <div class="border-b border-slate-50 last:border-0 pb-3 last:pb-0">
                     <div class="flex items-center justify-between text-xs mb-1.5">
@@ -2769,10 +2785,62 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                     </div>
                     <div class="flex items-center justify-between mt-1">
                         <span class="text-[10px] ${statusColor} font-semibold">${statusText}</span>
-                        <span class="text-[10px] text-slate-400">목표금액 ${targetAmount.toLocaleString()}원</span>
+                        <span class="text-[10px] text-slate-400">현재 목표금액 ${targetAmountNow.toLocaleString()}원</span>
                     </div>
                 </div>`;
         }).join('');
+    }
+
+    function computeMonthlyAllocation(cash, activeEntries, targetSum, totalCombined) {
+        // 목표에 미달인 종목만 먼저 정확히 목표치까지 채우고, 남는 돈은 목표비율대로 추가 배분
+        // (실제 매수만 가능하다는 전제 하에 - 매도는 고려하지 않음)
+        const newTotal = totalCombined + cash;
+        const deficits = activeEntries.map(item => {
+            const targetFrac = targetRatios[item.name] / targetSum;
+            const targetAfter = targetFrac * newTotal;
+            return { name: item.name, targetFrac, deficit: Math.max(0, targetAfter - item.amount) };
+        });
+        const sumDeficit = deficits.reduce((s, d) => s + d.deficit, 0);
+
+        let allocations;
+        if (sumDeficit <= cash) {
+            const remaining = cash - sumDeficit;
+            allocations = deficits.map(d => ({ name: d.name, amount: Math.round(d.deficit + remaining * d.targetFrac) }));
+        } else {
+            allocations = deficits.map(d => ({ name: d.name, amount: sumDeficit > 0 ? Math.round(cash * (d.deficit / sumDeficit)) : 0 }));
+        }
+        return allocations;
+    }
+
+    function renderMonthlyAllocationResult() {
+        const cashInput = document.getElementById('allocator-monthly-cash');
+        const cash = parseInt(cashInput.value, 10);
+        const resultEl = document.getElementById('allocator-monthly-result');
+        if (!cash || cash <= 0) {
+            showAppToast('이번 달 투자할 금액을 입력해주세요.');
+            return;
+        }
+        const stockHoldings = getStockHoldingSums();
+        const combined = stockHoldings.concat(safeAssetItems.map(item => ({ name: item.name, amount: item.amount })));
+        const activeEntries = combined.filter(item => targetRatios[item.name] > 0);
+        if (activeEntries.length < 2) {
+            showAppToast('목표 비율을 2개 이상 입력해주세요.');
+            return;
+        }
+        const targetSum = activeEntries.reduce((s, item) => s + targetRatios[item.name], 0);
+        const totalCombined = combined.reduce((s, item) => s + item.amount, 0);
+        const allocations = computeMonthlyAllocation(cash, activeEntries, targetSum, totalCombined);
+
+        resultEl.classList.remove('hidden');
+        const allocatedSum = allocations.reduce((s, a) => s + a.amount, 0);
+        resultEl.innerHTML = allocations.map(a => `
+            <div class="flex items-center justify-between text-xs">
+                <span class="text-indigo-800 font-medium">${a.name}</span>
+                <span class="font-bold text-indigo-700">${a.amount.toLocaleString()}원</span>
+            </div>`).join('') +
+            `<div class="flex items-center justify-between text-[10px] text-indigo-400 pt-1.5 mt-1.5 border-t border-indigo-100">
+                <span>합계</span><span>${allocatedSum.toLocaleString()}원 / ${cash.toLocaleString()}원</span>
+            </div>`;
     }
 
     function getStockHoldingSums() {
