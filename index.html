@@ -1267,6 +1267,22 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         }
     }
 
+    // 거래 삭제 시, 그 종목의 자동 연동 자산기록(trade-sync-)을 지우고 남은 거래가 있으면 최신 거래가 기준으로 다시 생성
+    function resyncStockValuationAfterDelete(account, item) {
+        const assetType = STOCK_ACCOUNT_TO_ASSET_TYPE[account] || '연금저축';
+        assets = assets.filter(a => !(a.type === assetType && a.name === item && isTradeLinkedAsset(a)));
+        const remaining = stocks
+            .filter(s => (s.account || '연금저축') === account && s.item === item)
+            .sort((a, b) => {
+                if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+                return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+            });
+        if (remaining.length === 0) return;
+        const latest = remaining[remaining.length - 1];
+        const latestUnitPrice = latest.unitPrice != null ? latest.unitPrice : (latest.qty ? Math.round(latest.amount / latest.qty) : 0);
+        syncStockValuationToAssets(account, item, latestUnitPrice, latest.date);
+    }
+
     function runStockRollover(includeCurrentMonth) {
         if (!stocks.length) return;
         const now = new Date();
@@ -1778,9 +1794,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
             if (editingStockId) {
                 const target = stocks.find(s => s.id === editingStockId);
+                const prevAccount = target ? (target.account || '연금저축') : null;
+                const prevItem = target ? target.item : null;
                 if (target) {
                     target.type = stockTradeType; target.item = item; target.account = account; target.date = date;
                     target.amount = amount; target.unitPrice = unitPrice; target.qty = qty; target.memo = memo;
+                }
+                if (prevItem !== null && (prevAccount !== account || prevItem !== item)) {
+                    resyncStockValuationAfterDelete(prevAccount, prevItem); // 종목/계좌가 바뀐 경우 예전 연동 기록 정리
                 }
                 exitStockEditMode();
             } else {
@@ -1989,7 +2010,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
     window.deleteStock = function (id) {
         if (editingStockId === id) exitStockEditMode();
+        const target = stocks.find(s => s.id === id);
         stocks = stocks.filter(s => s.id !== id);
+        if (target) resyncStockValuationAfterDelete(target.account || '연금저축', target.item);
         saveAll();
         render(); // 자산탭에도 영향
     };
