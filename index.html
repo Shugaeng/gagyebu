@@ -1614,14 +1614,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             if (editingAssetId) {
                 const target = assets.find(a => a.id === editingAssetId);
                 if (target) {
-                    const principal = principalInput.trim() !== '' ? parseInt(principalInput, 10) : (target.principal || target.amount);
+                    let principal = principalInput.trim() !== '' ? parseInt(principalInput, 10) : (target.principal || target.amount);
+                    if (NO_RETURN_BADGE_TYPES.indexOf(type) !== -1) principal = amount; // 예금/현금 등은 수익 개념이 없어 원금=평가금액으로 고정
                     target.type = type; target.name = name; target.date = date; target.amount = amount; target.principal = principal;
                     target.needsValuation = false; // 평가금액을 직접 입력/수정했으므로 알림 해제
                 }
                 exitAssetEditMode();
             } else {
                 let principal;
-                if (principalInput.trim() !== '') {
+                if (NO_RETURN_BADGE_TYPES.indexOf(type) !== -1) {
+                    principal = amount; // 예금/현금/보증금/이자/배당금/부채는 입출금일 뿐, 수익 개념이 없음
+                } else if (principalInput.trim() !== '') {
                     principal = parseInt(principalInput, 10);
                 } else {
                     const priorSameItem = assets.filter(a => a.type === type && a.name === name)
@@ -2231,7 +2234,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         return sorted[idx - 1].amount;
     }
 
+    // 이 자산 구분들은 "단순 입출금/이동"만 있고 자체적인 수익 개념이 없어서 변동률 배지를 표시하지 않음
+    const NO_RETURN_BADGE_TYPES = ['예금/파킹통장', '현금', '보증금', '이자', '배당금', '대출/부채'];
+
     function renderAssetChangeBadge(log) {
+        if (NO_RETURN_BADGE_TYPES.indexOf(log.type) !== -1) return '';
         const prior = getPriorAssetAmount(log);
         if (prior === null || prior === 0) return '';
         const pct = ((log.amount - prior) / prior) * 100;
@@ -2312,24 +2319,28 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             visibleLogs.forEach(log => {
                 const isLiability = log.type === '대출/부채';
                 const badgeColor = ASSET_COLORS[log.type] || 'bg-slate-400';
+                const changeBadge = renderAssetChangeBadge(log);
                 const el = document.createElement('div');
-                el.className = `py-2.5 flex items-center justify-between hover:bg-slate-50 px-1 rounded-lg transition text-xs ${editingAssetId === log.id ? 'bg-amber-50/70 ring-1 ring-amber-200' : ''}`;
+                el.className = `py-2.5 flex items-start justify-between gap-2 hover:bg-slate-50 px-2 rounded-lg transition text-xs ${editingAssetId === log.id ? 'bg-amber-50/70 ring-1 ring-amber-200' : ''}`;
                 el.innerHTML = `
-                    <div class="flex items-center space-x-2.5">
-                        <span class="w-2 h-2 rounded-full ${badgeColor}"></span>
-                        <div>
-                            <div class="flex items-center space-x-1.5">
+                    <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                        <span class="w-2 h-2 rounded-full ${badgeColor} shrink-0 mt-1.5"></span>
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="font-medium text-slate-800">${log.name}</span>
-                                <span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-semibold">${log.type}</span>
+                                <span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-semibold shrink-0">${log.type}</span>
                             </div>
                             <div class="text-[10px] text-slate-400 mt-0.5">${log.date}</div>
                         </div>
                     </div>
-                    <div class="flex items-center space-x-1">
-                        ${renderAssetChangeBadge(log)}
-                        <span class="font-bold ${isLiability ? 'text-rose-600' : 'text-slate-900'} mr-1">${isLiability ? '-' : '+'}${log.amount.toLocaleString()}원</span>
-                        <button data-edit-asset-log="${log.id}" class="text-slate-400 hover:text-indigo-500 transition p-1">${PENCIL_SVG}</button>
-                        <button data-delete-asset-log="${log.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
+                    <div class="flex flex-col items-end gap-1 shrink-0">
+                        <span class="whitespace-nowrap">
+                            ${changeBadge}<span class="font-bold ${isLiability ? 'text-rose-600' : 'text-slate-900'}">${isLiability ? '-' : '+'}${log.amount.toLocaleString()}원</span>
+                        </span>
+                        <div class="flex items-center">
+                            <button data-edit-asset-log="${log.id}" class="text-slate-400 hover:text-indigo-500 transition p-1">${PENCIL_SVG}</button>
+                            <button data-delete-asset-log="${log.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
+                        </div>
                     </div>`;
                 historyListContainer.appendChild(el);
             });
