@@ -2761,7 +2761,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         boxes.forEach((box, i) => {
             const pct = total > 0 ? (box.amount / total) * 100 : 0;
             const el = document.createElement('div');
-            el.className = 'absolute flex flex-col items-center justify-center text-center p-1.5 overflow-hidden';
+            el.className = 'absolute flex flex-col items-center justify-center text-center p-1 overflow-hidden cursor-pointer active:brightness-95';
             el.style.left = box.x + '%';
             el.style.top = box.y + '%';
             el.style.width = box.w + '%';
@@ -2769,12 +2769,23 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             el.style.background = TREEMAP_COLORS[i % TREEMAP_COLORS.length];
             el.style.border = '2px solid #ffffff';
             el.style.boxSizing = 'border-box';
-            const isSmall = box.w < 20 || box.h < 18;
-            el.innerHTML = isSmall
-                ? `<span class="text-white font-bold text-[10px] leading-tight drop-shadow">${pct.toFixed(0)}%</span>`
-                : `<span class="text-white font-bold text-xs leading-tight drop-shadow">${box.name}</span>
+
+            // 칸 크기에 따라 3단계로 표시 정보량 조절 (너무 작으면 % 만)
+            if (box.w >= 25 && box.h >= 20) {
+                el.innerHTML = `<span class="text-white font-bold text-xs leading-tight drop-shadow break-keep">${box.name}</span>
                    <span class="text-white/90 text-[10px] mt-0.5 drop-shadow">${box.amount.toLocaleString()}원</span>
                    <span class="text-white/90 text-[10px] font-semibold drop-shadow">${pct.toFixed(1)}%</span>`;
+            } else if (box.w >= 12 && box.h >= 12) {
+                el.innerHTML = `<span class="text-white font-bold text-[10px] leading-tight drop-shadow break-keep line-clamp-2">${box.name}</span>
+                   <span class="text-white/90 text-[9px] mt-0.5 drop-shadow font-semibold">${pct.toFixed(0)}%</span>`;
+            } else {
+                el.innerHTML = `<span class="text-white font-bold text-[10px] leading-tight drop-shadow">${pct.toFixed(0)}%</span>`;
+            }
+
+            // 칸이 작아 글자가 안 보여도, 탭하면 이름/금액/퍼센트를 토스트로 확인 가능
+            el.addEventListener('click', () => {
+                showAppToast(`${box.name}: ${box.amount.toLocaleString()}원 (${pct.toFixed(1)}%)`);
+            });
             container.appendChild(el);
         });
     }
