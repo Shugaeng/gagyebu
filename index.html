@@ -403,11 +403,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         <input type="date" id="asset-date" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                     </div>
                     <div class="w-full">
-                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">현재 평가금액 (원)</label>
+                        <label id="asset-amount-label" class="block text-[11px] font-semibold text-slate-400 mb-1">현재 잔액 (원)</label>
                         <input type="number" id="asset-amount" placeholder="0" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                     </div>
                 </div>
-                <div class="w-full">
+                <div class="w-full" id="asset-principal-wrapper">
                     <label class="block text-[11px] font-semibold text-slate-400 mb-1">투자원금 (원, 비워두면 직전 기록값 승계)</label>
                     <input type="number" id="asset-principal" placeholder="비워두면 자동으로 이어받습니다" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                 </div>
@@ -415,7 +415,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                     <label class="block text-[11px] font-semibold text-slate-400 mb-1">메모</label>
                     <input type="text" id="asset-memo" placeholder="예: 만기 2027-03, 청약저축용" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500 transition">
                 </div>
-                <p class="text-[10px] text-slate-400 leading-relaxed px-0.5">💡 같은 항목명으로 다시 등록하면 "최신 평가금액 업데이트"로 처리되어 이전 값과 중복 합산되지 않습니다.</p>
+                <p class="text-[10px] text-slate-400 leading-relaxed px-0.5" id="asset-form-hint">💡 같은 항목명으로 다시 등록하면 "최신 평가금액 업데이트"로 처리되어 이전 값과 중복 합산되지 않습니다.</p>
                 <div class="flex gap-2">
                     <button type="submit" id="asset-form-submit-btn" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-2xs">자산 등록하기</button>
                     <button type="button" id="asset-form-cancel-btn" class="hidden px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium py-2.5 rounded-xl transition">취소</button>
@@ -1410,6 +1410,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         setupSyncEventListeners();
         updateCategoryOptions();
         updateAssetNameFieldMode();
+        updateAssetFormForType();
         loadSafeAssets();
         loadTargetRatios();
 
@@ -1579,7 +1580,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('allocator-form-cancel-btn').addEventListener('click', () => {
             exitEditSafeAsset();
         });
-        document.getElementById('asset-type').addEventListener('change', () => updateAssetNameFieldMode());
+        document.getElementById('asset-type').addEventListener('change', () => { updateAssetNameFieldMode(); updateAssetFormForType(); });
         document.getElementById('asset-bank-select').addEventListener('change', () => {
             const bankSelect = document.getElementById('asset-bank-select');
             const nameInput = document.getElementById('asset-name');
@@ -2011,6 +2012,25 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         }
     }
 
+    // 예금/현금/보증금/이자/배당금/대출·부채는 "수익" 개념이 없으므로 투자원금 입력칸을 숨기고,
+    // 평가금액 라벨도 "현재 잔액"으로 바꿔서 "지금 통장에 찍힌 총액"을 넣어야 한다는 걸 명확히 한다.
+    function updateAssetFormForType() {
+        const type = document.getElementById('asset-type').value;
+        const principalWrapper = document.getElementById('asset-principal-wrapper');
+        const amountLabel = document.getElementById('asset-amount-label');
+        const hint = document.getElementById('asset-form-hint');
+        const isSimpleType = NO_RETURN_BADGE_TYPES.indexOf(type) !== -1;
+
+        principalWrapper.classList.toggle('hidden', isSimpleType);
+        if (isSimpleType) {
+            amountLabel.textContent = '현재 잔액 (원)';
+            hint.textContent = '💡 "추가된 금액"이 아니라, 지금 통장/항목에 찍힌 전체 금액을 입력하세요. 같은 항목명으로 다시 등록하면 최신 잔액으로 업데이트돼요.';
+        } else {
+            amountLabel.textContent = '현재 평가금액 (원)';
+            hint.textContent = '💡 같은 항목명으로 다시 등록하면 "최신 평가금액 업데이트"로 처리되어 이전 값과 중복 합산되지 않습니다.';
+        }
+    }
+
     function startEditAsset(id) {
         const target = assets.find(a => a.id === id);
         if (!target) return;
@@ -2018,6 +2038,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
         document.getElementById('asset-type').value = target.type;
         updateAssetNameFieldMode(target.name);
+        updateAssetFormForType();
         document.getElementById('asset-date').value = target.date || '';
         document.getElementById('asset-amount').value = target.amount;
         document.getElementById('asset-principal').value = target.principal != null ? target.principal : '';
@@ -2037,6 +2058,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('asset-form-cancel-btn').classList.add('hidden');
         document.getElementById('asset-type').value = '부동산';
         updateAssetNameFieldMode('');
+        updateAssetFormForType();
         document.getElementById('asset-amount').value = '';
         document.getElementById('asset-principal').value = '';
         document.getElementById('asset-memo').value = '';
