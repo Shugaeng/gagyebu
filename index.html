@@ -532,12 +532,13 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             <div class="flex items-center justify-between mb-3">
                 <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="book-open" class="w-4 h-4 text-indigo-500"></i><span id="stock-list-title">매매 기록 내역</span></h3>
                 <div class="flex rounded-lg bg-slate-100 p-0.5 text-[11px]">
+                    <button id="btn-stock-yearly" class="px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition">연도별</button>
                     <button id="btn-stock-monthly" class="px-2.5 py-1 rounded-md bg-white text-slate-800 font-semibold shadow-2xs transition">월별</button>
                     <button id="btn-stock-item" class="px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition">종목별</button>
                 </div>
             </div>
             <div class="flex justify-end -mt-1 mb-1"><span id="stock-count" class="text-[11px] text-slate-400">총 0건</span></div>
-            <p id="stock-item-mode-hint" class="hidden text-[10px] text-slate-400 mb-2 px-0.5">💡 개별 내역 수정·삭제는 <strong>월별 보기</strong>에서 할 수 있어요.</p>
+            <p id="stock-item-mode-hint" class="hidden text-[10px] text-slate-400 mb-2 px-0.5">💡 개별 내역 수정·삭제는 <strong>연도별/월별 보기</strong>에서 할 수 있어요.</p>
             <div id="stock-list" class="divide-y divide-slate-100"></div>
         </div>
     </section>
@@ -828,7 +829,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v2.8.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
+    const APP_VERSION = 'v2.9.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
@@ -855,11 +856,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     let activeFilter = 'category';
     const PAGE_SIZE = 20;
     const STOCK_MONTH_PAGE_SIZE = 3;
+    const STOCK_YEAR_PAGE_SIZE = 3;
     let txPageSize = PAGE_SIZE;
     let assetHistoryPageSize = PAGE_SIZE;
     let stockPageSize = PAGE_SIZE;
     let stockMonthPageSize = STOCK_MONTH_PAGE_SIZE;
+    let stockYearPageSize = STOCK_YEAR_PAGE_SIZE;
     let expandedStockMonths = new Set(); // 매매일지 월별 보기: 펼쳐진 달만 기록 (기본은 전부 닫힘, 브라우징용 - 저장 안 함)
+    let expandedStockYears = new Set(); // 매매일지 연도별 보기: 펼쳐진 연도만 기록 (기본은 전부 닫힘)
 
     let transactions = [];
     let assets = [];
@@ -1677,20 +1681,33 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             btnStockBuy.className = "flex-1 py-1 text-xs font-medium rounded-md text-slate-500 hover:text-slate-800 transition";
         });
 
+        const btnStockYearly = document.getElementById('btn-stock-yearly');
         const btnStockMonthly = document.getElementById('btn-stock-monthly');
         const btnStockItem = document.getElementById('btn-stock-item');
+        const ACTIVE_CLS = "px-2.5 py-1 rounded-md bg-white text-slate-800 font-semibold shadow-2xs transition";
+        const INACTIVE_CLS = "px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition";
+        btnStockYearly.addEventListener('click', () => {
+            stockGroupMode = 'yearly';
+            stockYearPageSize = STOCK_YEAR_PAGE_SIZE;
+            btnStockYearly.className = ACTIVE_CLS;
+            btnStockMonthly.className = INACTIVE_CLS;
+            btnStockItem.className = INACTIVE_CLS;
+            renderStocks();
+        });
         btnStockMonthly.addEventListener('click', () => {
             stockGroupMode = 'monthly';
             stockMonthPageSize = STOCK_MONTH_PAGE_SIZE;
-            btnStockMonthly.className = "px-2.5 py-1 rounded-md bg-white text-slate-800 font-semibold shadow-2xs transition";
-            btnStockItem.className = "px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition";
+            btnStockMonthly.className = ACTIVE_CLS;
+            btnStockYearly.className = INACTIVE_CLS;
+            btnStockItem.className = INACTIVE_CLS;
             renderStocks();
         });
         btnStockItem.addEventListener('click', () => {
             stockGroupMode = 'item';
             stockPageSize = PAGE_SIZE;
-            btnStockItem.className = "px-2.5 py-1 rounded-md bg-white text-slate-800 font-semibold shadow-2xs transition";
-            btnStockMonthly.className = "px-2.5 py-1 rounded-md text-slate-500 hover:text-slate-800 transition";
+            btnStockItem.className = ACTIVE_CLS;
+            btnStockYearly.className = INACTIVE_CLS;
+            btnStockMonthly.className = INACTIVE_CLS;
             renderStocks();
         });
         document.getElementById('stock-account-filter').addEventListener('change', (e) => {
@@ -3103,6 +3120,45 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         safeCreateIcons();
     }
 
+    function createStockTradeRowEl(s) {
+        const isBuy = s.type === '매수';
+        const unitPrice = s.unitPrice != null ? s.unitPrice : (s.qty ? Math.round(s.amount / s.qty) : 0);
+        const el = document.createElement('div');
+        el.className = `py-2.5 flex items-start justify-between gap-2 hover:bg-slate-50/80 px-2 rounded-lg transition text-xs ${editingStockId === s.id ? 'bg-amber-50/70 ring-1 ring-amber-200' : ''}`;
+        el.innerHTML = `
+            <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isBuy ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}">${s.type}</div>
+                <div class="min-w-0">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="font-bold text-slate-800">${s.item}</span>
+                        <span class="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded font-semibold shrink-0">${s.account || '연금저축'}</span>
+                    </div>
+                    <div class="text-[10px] text-slate-500 mt-0.5">${s.qty}주 × ${unitPrice.toLocaleString()}원</div>
+                    <div class="text-[10px] text-slate-400 mt-0.5">${s.date} · ${s.memo}</div>
+                </div>
+            </div>
+            <div class="flex flex-col items-end gap-1 shrink-0">
+                <span class="font-bold whitespace-nowrap ${isBuy ? 'text-indigo-600' : 'text-rose-600'}">${s.amount.toLocaleString()}원</span>
+                <div class="flex items-center">
+                    <button data-edit-stock="${s.id}" class="text-slate-400 hover:text-indigo-500 transition p-1">${PENCIL_SVG}</button>
+                    <button data-delete-stock="${s.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
+                </div>
+            </div>`;
+        return el;
+    }
+
+    function createCollapsibleGroupHeaderEl(labelHtml, buySum, sellSum, isCollapsed) {
+        const headerEl = document.createElement('div');
+        headerEl.className = "bg-slate-50 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 flex justify-between items-center mt-2 mb-1 cursor-pointer select-none";
+        headerEl.innerHTML = `
+            <span class="flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400 transition-transform" style="transform: rotate(${isCollapsed ? '-90deg' : '0deg'})"><path d="m6 9 6 6 6-6"/></svg>
+                <span>${labelHtml}</span>
+            </span>
+            <span class="text-[11px] text-slate-500">매수 ${buySum.toLocaleString()}원 / 매도 ${sellSum.toLocaleString()}원</span>`;
+        return headerEl;
+    }
+
     function renderStocks() {
         const listContainer = document.getElementById('stock-list');
         const itemModeHint = document.getElementById('stock-item-mode-hint');
@@ -3118,7 +3174,44 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('stock-total-sell').textContent = `${totalSell.toLocaleString()}원`;
         document.getElementById('stock-total-net').textContent = `${(totalBuy - totalSell).toLocaleString()}원`;
 
-        if (stockGroupMode === 'monthly') {
+        if (stockGroupMode === 'yearly') {
+            const groups = {};
+            scopedStocks.forEach(s => { const yr = s.date ? s.date.slice(0, 4) : '기타'; if (!groups[yr]) groups[yr] = []; groups[yr].push(s); });
+            const sortedKeys = Object.keys(groups).sort().reverse();
+            document.getElementById('stock-count').textContent = `총 ${scopedStocks.length}건`;
+
+            if (sortedKeys.length === 0) {
+                listContainer.innerHTML = `<div class="py-10 text-center text-slate-400 text-xs">등록된 주식 매매일지가 없습니다.</div>`;
+            } else {
+                const visibleKeys = sortedKeys.slice(0, stockYearPageSize);
+                visibleKeys.forEach(yr => {
+                    const items = groups[yr].slice().sort((a, b) => {
+                        if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+                        return a.id < b.id ? 1 : (a.id > b.id ? -1 : 0);
+                    });
+                    let yearBuySum = 0, yearSellSum = 0;
+                    items.forEach(s => { if (s.type === '매수') yearBuySum += s.amount; else yearSellSum += s.amount; });
+                    const isCollapsed = !expandedStockYears.has(yr);
+                    const headerEl = createCollapsibleGroupHeaderEl(`📆 ${yr}년`, yearBuySum, yearSellSum, isCollapsed);
+                    listContainer.appendChild(headerEl);
+
+                    const itemsWrap = document.createElement('div');
+                    itemsWrap.className = isCollapsed ? 'hidden' : '';
+                    headerEl.addEventListener('click', () => {
+                        const nowCollapsed = itemsWrap.classList.toggle('hidden');
+                        if (nowCollapsed) expandedStockYears.delete(yr); else expandedStockYears.add(yr);
+                        headerEl.querySelector('svg').style.transform = nowCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+                    });
+
+                    items.forEach(s => itemsWrap.appendChild(createStockTradeRowEl(s)));
+                    listContainer.appendChild(itemsWrap);
+                });
+                appendLoadMoreButton(listContainer, sortedKeys.length, stockYearPageSize, () => {
+                    stockYearPageSize += STOCK_YEAR_PAGE_SIZE;
+                    renderStocks();
+                });
+            }
+        } else if (stockGroupMode === 'monthly') {
             const groups = {};
             scopedStocks.forEach(s => { const ym = s.date ? s.date.slice(0, 7) : '기타'; if (!groups[ym]) groups[ym] = []; groups[ym].push(s); });
             const sortedKeys = Object.keys(groups).sort().reverse();
@@ -3136,14 +3229,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                     let monthBuySum = 0, monthSellSum = 0;
                     items.forEach(s => { if (s.type === '매수') monthBuySum += s.amount; else monthSellSum += s.amount; });
                     const isCollapsed = !expandedStockMonths.has(ym);
-                    const headerEl = document.createElement('div');
-                    headerEl.className = "bg-slate-50 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 flex justify-between items-center mt-2 mb-1 cursor-pointer select-none";
-                    headerEl.innerHTML = `
-                        <span class="flex items-center gap-1.5">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400 transition-transform" style="transform: rotate(${isCollapsed ? '-90deg' : '0deg'})"><path d="m6 9 6 6 6-6"/></svg>
-                            <span>📅 ${ym}</span>
-                        </span>
-                        <span class="text-[11px] text-slate-500">매수 ${monthBuySum.toLocaleString()}원 / 매도 ${monthSellSum.toLocaleString()}원</span>`;
+                    const headerEl = createCollapsibleGroupHeaderEl(`📅 ${ym}`, monthBuySum, monthSellSum, isCollapsed);
                     listContainer.appendChild(headerEl);
 
                     const itemsWrap = document.createElement('div');
@@ -3154,32 +3240,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         headerEl.querySelector('svg').style.transform = nowCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
                     });
 
-                    items.forEach(s => {
-                        const isBuy = s.type === '매수';
-                        const unitPrice = s.unitPrice != null ? s.unitPrice : (s.qty ? Math.round(s.amount / s.qty) : 0);
-                        const el = document.createElement('div');
-                        el.className = `py-2.5 flex items-start justify-between gap-2 hover:bg-slate-50/80 px-2 rounded-lg transition text-xs ${editingStockId === s.id ? 'bg-amber-50/70 ring-1 ring-amber-200' : ''}`;
-                        el.innerHTML = `
-                            <div class="flex items-start gap-2.5 min-w-0 flex-1">
-                                <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isBuy ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}">${s.type}</div>
-                                <div class="min-w-0">
-                                    <div class="flex items-center gap-1.5 flex-wrap">
-                                        <span class="font-bold text-slate-800">${s.item}</span>
-                                        <span class="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.2 rounded font-semibold shrink-0">${s.account || '연금저축'}</span>
-                                    </div>
-                                    <div class="text-[10px] text-slate-500 mt-0.5">${s.qty}주 × ${unitPrice.toLocaleString()}원</div>
-                                    <div class="text-[10px] text-slate-400 mt-0.5">${s.date} · ${s.memo}</div>
-                                </div>
-                            </div>
-                            <div class="flex flex-col items-end gap-1 shrink-0">
-                                <span class="font-bold whitespace-nowrap ${isBuy ? 'text-indigo-600' : 'text-rose-600'}">${s.amount.toLocaleString()}원</span>
-                                <div class="flex items-center">
-                                    <button data-edit-stock="${s.id}" class="text-slate-400 hover:text-indigo-500 transition p-1">${PENCIL_SVG}</button>
-                                    <button data-delete-stock="${s.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
-                                </div>
-                            </div>`;
-                        itemsWrap.appendChild(el);
-                    });
+                    items.forEach(s => itemsWrap.appendChild(createStockTradeRowEl(s)));
                     listContainer.appendChild(itemsWrap);
                 });
                 appendLoadMoreButton(listContainer, sortedKeys.length, stockMonthPageSize, () => {
