@@ -642,23 +642,28 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             </form>
         </div>
 
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
-            <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="database" class="w-4 h-4 text-rose-500"></i><span>데이터 관리</span></h3>
-            <p class="text-[11px] text-slate-400 leading-relaxed">클라우드로 자동 동기화돼요. 엑셀 가져오기는 기존 내역에 추가되며(중복은 자동 제외), JSON 백업은 전체를 교체해요.</p>
-            <div class="grid grid-cols-2 gap-2">
-                <button id="export-excel-btn" class="text-xs text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5"><i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>엑셀로 내보내기</button>
-                <label class="text-xs text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5 cursor-pointer">
-                    <i data-lucide="upload" class="w-3.5 h-3.5"></i>엑셀로 가져오기
-                    <input type="file" id="import-excel-input" accept=".xlsx" class="hidden">
-                </label>
-                <button id="export-data-btn" class="text-xs text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5"><i data-lucide="download" class="w-3.5 h-3.5"></i>JSON 백업 내보내기</button>
-                <label class="text-xs text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5 cursor-pointer">
-                    <i data-lucide="upload" class="w-3.5 h-3.5"></i>JSON 백업 가져오기
-                    <input type="file" id="import-data-input" accept="application/json" class="hidden">
-                </label>
-            </div>
-            <div class="pt-1">
-                <button id="clear-data-btn" class="text-xs text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3.5 py-1.5 rounded-lg font-medium transition">초기화 및 데모 데이터 재설정</button>
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <button type="button" id="data-mgmt-toggle" class="w-full flex items-center justify-between">
+                <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="database" class="w-4 h-4 text-rose-500"></i><span>데이터 관리</span></h3>
+                <svg id="data-mgmt-chevron" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-slate-400 transition-transform"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div id="data-mgmt-content" class="space-y-3 mt-3">
+                <p class="text-[11px] text-slate-400 leading-relaxed">클라우드로 자동 동기화돼요. 엑셀 가져오기는 기존 내역에 추가되며(중복은 자동 제외), JSON 백업은 전체를 교체해요.</p>
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="export-excel-btn" class="text-xs text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5"><i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>엑셀로 내보내기</button>
+                    <label class="text-xs text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5 cursor-pointer">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>엑셀로 가져오기
+                        <input type="file" id="import-excel-input" accept=".xlsx" class="hidden">
+                    </label>
+                    <button id="export-data-btn" class="text-xs text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5"><i data-lucide="download" class="w-3.5 h-3.5"></i>JSON 백업 내보내기</button>
+                    <label class="text-xs text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-2 rounded-lg font-medium transition flex items-center justify-center gap-1.5 cursor-pointer">
+                        <i data-lucide="upload" class="w-3.5 h-3.5"></i>JSON 백업 가져오기
+                        <input type="file" id="import-data-input" accept="application/json" class="hidden">
+                    </label>
+                </div>
+                <div class="pt-1">
+                    <button id="clear-data-btn" class="text-xs text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3.5 py-1.5 rounded-lg font-medium transition">초기화 및 데모 데이터 재설정</button>
+                </div>
             </div>
         </div>
 
@@ -818,7 +823,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-sky-400', '연금저축': 'bg-cyan-400', '이자': 'bg-lime-400', '배당금': 'bg-rose-400',
         '대출/부채': 'bg-rose-500', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v2.6.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
+    const APP_VERSION = 'v2.7.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
@@ -849,6 +854,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     let assetHistoryPageSize = PAGE_SIZE;
     let stockPageSize = PAGE_SIZE;
     let stockMonthPageSize = STOCK_MONTH_PAGE_SIZE;
+    let collapsedStockMonths = new Set(); // 매매일지 월별 보기에서 접힌 달 목록 (브라우징용, 저장 안 함)
 
     let transactions = [];
     let assets = [];
@@ -1908,6 +1914,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             const file = e.target.files[0];
             if (file) importBackup(file);
             e.target.value = '';
+        });
+        document.getElementById('data-mgmt-toggle').addEventListener('click', () => {
+            const content = document.getElementById('data-mgmt-content');
+            const chevron = document.getElementById('data-mgmt-chevron');
+            const collapsed = content.classList.toggle('hidden');
+            chevron.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
         });
         document.getElementById('export-excel-btn').addEventListener('click', exportExcelAll);
         document.getElementById('import-excel-input').addEventListener('change', (e) => {
@@ -3111,10 +3123,25 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                     });
                     let monthBuySum = 0, monthSellSum = 0;
                     items.forEach(s => { if (s.type === '매수') monthBuySum += s.amount; else monthSellSum += s.amount; });
+                    const isCollapsed = collapsedStockMonths.has(ym);
                     const headerEl = document.createElement('div');
-                    headerEl.className = "bg-slate-50 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 flex justify-between items-center mt-2 mb-1";
-                    headerEl.innerHTML = `<span>📅 ${ym}</span><span class="text-[11px] text-slate-500">매수 ${monthBuySum.toLocaleString()}원 / 매도 ${monthSellSum.toLocaleString()}원</span>`;
+                    headerEl.className = "bg-slate-50 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 flex justify-between items-center mt-2 mb-1 cursor-pointer select-none";
+                    headerEl.innerHTML = `
+                        <span class="flex items-center gap-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-slate-400 transition-transform" style="transform: rotate(${isCollapsed ? '-90deg' : '0deg'})"><path d="m6 9 6 6 6-6"/></svg>
+                            <span>📅 ${ym}</span>
+                        </span>
+                        <span class="text-[11px] text-slate-500">매수 ${monthBuySum.toLocaleString()}원 / 매도 ${monthSellSum.toLocaleString()}원</span>`;
                     listContainer.appendChild(headerEl);
+
+                    const itemsWrap = document.createElement('div');
+                    itemsWrap.className = isCollapsed ? 'hidden' : '';
+                    headerEl.addEventListener('click', () => {
+                        const nowCollapsed = itemsWrap.classList.toggle('hidden');
+                        if (nowCollapsed) collapsedStockMonths.add(ym); else collapsedStockMonths.delete(ym);
+                        headerEl.querySelector('svg').style.transform = nowCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+                    });
+
                     items.forEach(s => {
                         const isBuy = s.type === '매수';
                         const unitPrice = s.unitPrice != null ? s.unitPrice : (s.qty ? Math.round(s.amount / s.qty) : 0);
@@ -3139,8 +3166,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                                     <button data-delete-stock="${s.id}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
                                 </div>
                             </div>`;
-                        listContainer.appendChild(el);
+                        itemsWrap.appendChild(el);
                     });
+                    listContainer.appendChild(itemsWrap);
                 });
                 appendLoadMoreButton(listContainer, sortedKeys.length, stockMonthPageSize, () => {
                     stockMonthPageSize += STOCK_MONTH_PAGE_SIZE;
