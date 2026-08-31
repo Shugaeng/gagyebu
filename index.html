@@ -203,7 +203,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             <div>
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-[11px] text-slate-400 font-medium">소비 지출 추이</span>
-                    <span id="consumption-avg-text" class="text-[11px] font-semibold text-rose-500">월 평균 -원</span>
+                    <span id="consumption-avg-text" class="text-[11px] font-semibold text-rose-500">월 평균 소비액 -원</span>
                 </div>
                 <div class="relative h-44 w-full"><canvas id="consumptionTrendChart"></canvas></div>
             </div>
@@ -832,7 +832,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v2.9.1'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
+    const APP_VERSION = 'v2.9.2'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
@@ -2328,10 +2328,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         const monthlyEquivalents = chartPeriodMode === 'monthly' ? validEntries : validEntries.map(v => v / 3);
         const avgText = document.getElementById('consumption-avg-text');
         if (monthlyEquivalents.length === 0) {
-            avgText.textContent = '월 평균 -원';
+            avgText.textContent = '월 평균 소비액 -원';
         } else {
             const avg = monthlyEquivalents.reduce((s, v) => s + v, 0) / monthlyEquivalents.length;
-            avgText.textContent = `월 평균 ${Math.round(avg).toLocaleString()}원`;
+            avgText.textContent = `월 평균 소비액 ${Math.round(avg).toLocaleString()}원`;
         }
     }
 
