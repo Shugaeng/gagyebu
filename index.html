@@ -832,7 +832,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v2.9.2'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
+    const APP_VERSION = 'v2.9.3'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
@@ -1264,12 +1264,19 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     // 같은 항목(type+name)으로 여러 번 기록된 자산은 최신 값만 반영한다.
     const CUMULATIVE_ASSET_TYPES = ['예금/파킹통장', '이자', '배당금', '현금']; // 이 구분들은 매번 "총 잔액"이 아니라 "추가된 금액"을 입력 → 누적 합산
 
+    function dateToLocalStr(d) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
     function getAssetSnapshotAsOf(referenceDate) {
+        // referenceDate는 Date 객체(로컬 시간)로 들어오는데, a.date("YYYY-MM-DD")를 new Date()로 파싱하면 UTC 자정 기준이라
+        // 한국 시간대(+9)에서는 같은 날짜인데도 몇 시간 밀려서 "월말 당일" 기록이 빠지는 문제가 있었음.
+        // 그래서 전부 "YYYY-MM-DD" 문자열끼리 비교(사전식 비교가 곧 날짜 비교와 동일)해서 시간대 영향을 아예 없앤다.
+        const cutoffStr = dateToLocalStr(referenceDate);
         const latestByKey = {};
         const cumulativeByKey = {};
         assets.forEach(a => {
-            const recordDate = a.date ? new Date(a.date) : new Date(0);
-            if (recordDate > referenceDate) return;
+            if (!a.date || a.date > cutoffStr) return;
             const key = a.type + '||' + a.name;
 
             if (CUMULATIVE_ASSET_TYPES.indexOf(a.type) !== -1) {
@@ -1286,8 +1293,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 if (!bucket.latestDate || a.date > bucket.latestDate) bucket.latestDate = a.date;
             } else {
                 const existing = latestByKey[key];
-                const existingDate = existing ? (existing.date ? new Date(existing.date) : new Date(0)) : null;
-                if (!existing || recordDate >= existingDate) latestByKey[key] = a;
+                if (!existing || a.date >= (existing.date || '')) latestByKey[key] = a;
             }
         });
 
