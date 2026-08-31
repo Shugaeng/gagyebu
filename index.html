@@ -1239,17 +1239,41 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
     // ---------- 자산 스냅샷 (중복 합산 방지) ----------
     // 같은 항목(type+name)으로 여러 번 기록된 자산은 최신 값만 반영한다.
+    const CUMULATIVE_ASSET_TYPES = ['예금/파킹통장', '이자', '배당금', '현금']; // 이 구분들은 매번 "총 잔액"이 아니라 "추가된 금액"을 입력 → 누적 합산
+
     function getAssetSnapshotAsOf(referenceDate) {
         const latestByKey = {};
+        const cumulativeByKey = {};
         assets.forEach(a => {
-            const key = a.type + '||' + a.name;
             const recordDate = a.date ? new Date(a.date) : new Date(0);
             if (recordDate > referenceDate) return;
-            const existing = latestByKey[key];
-            const existingDate = existing ? (existing.date ? new Date(existing.date) : new Date(0)) : null;
-            if (!existing || recordDate >= existingDate) latestByKey[key] = a;
+            const key = a.type + '||' + a.name;
+
+            if (CUMULATIVE_ASSET_TYPES.indexOf(a.type) !== -1) {
+                if (!cumulativeByKey[key]) cumulativeByKey[key] = { baseAmount: 0, baseDate: null, deltaSum: 0, latestDate: a.date, sample: a };
+                const bucket = cumulativeByKey[key];
+                if (a.isDelta) {
+                    bucket.deltaSum += a.amount;
+                } else if (!bucket.baseDate || a.date >= bucket.baseDate) {
+                    // 적립 방식 도입 전(또는 수동 재설정) "총 잔액"으로 입력된 기록 중 가장 최신 것만 시작 잔액으로 사용
+                    bucket.baseAmount = a.amount;
+                    bucket.baseDate = a.date;
+                    bucket.sample = a;
+                }
+                if (!bucket.latestDate || a.date > bucket.latestDate) bucket.latestDate = a.date;
+            } else {
+                const existing = latestByKey[key];
+                const existingDate = existing ? (existing.date ? new Date(existing.date) : new Date(0)) : null;
+                if (!existing || recordDate >= existingDate) latestByKey[key] = a;
+            }
         });
-        return Object.values(latestByKey);
+
+        const cumulativeResults = Object.values(cumulativeByKey).map(bucket => {
+            const total = bucket.baseAmount + bucket.deltaSum;
+            return Object.assign({}, bucket.sample, { amount: total, principal: total, date: bucket.latestDate, needsValuation: false });
+        });
+
+        return Object.values(latestByKey).concat(cumulativeResults);
     }
 
     // ---------- 매매일지 -> 자산기록 월말 자동 반영 ----------
@@ -1794,7 +1818,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))[0];
                     principal = priorSameItem ? (priorSameItem.principal || priorSameItem.amount) : amount;
                 }
-                assets.push({ id: Date.now().toString(), type, name, amount, principal, date, memo });
+                const newAsset = { id: Date.now().toString(), type, name, amount, principal, date, memo };
+                if (CUMULATIVE_ASSET_TYPES.indexOf(type) !== -1) newAsset.isDelta = true; // 적립형: 이번에 추가된 금액임을 표시
+                assets.push(newAsset);
             }
             saveAll();
             render();
@@ -2012,17 +2038,21 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         }
     }
 
-    // 예금/현금/보증금/이자/배당금/대출·부채는 "수익" 개념이 없으므로 투자원금 입력칸을 숨기고,
-    // 평가금액 라벨도 "현재 잔액"으로 바꿔서 "지금 통장에 찍힌 총액"을 넣어야 한다는 걸 명확히 한다.
+    // 예금/현금/보증금/이자/배당금/대출·부채는 "수익" 개념이 없으므로 투자원금 입력칸을 숨긴다.
+    // 그 중 예금/파킹통장·이자·배당금·현금은 매번 "추가된 금액"을 입력하면 자동으로 누적되는 적립형으로 동작한다.
     function updateAssetFormForType() {
         const type = document.getElementById('asset-type').value;
         const principalWrapper = document.getElementById('asset-principal-wrapper');
         const amountLabel = document.getElementById('asset-amount-label');
         const hint = document.getElementById('asset-form-hint');
         const isSimpleType = NO_RETURN_BADGE_TYPES.indexOf(type) !== -1;
+        const isCumulative = CUMULATIVE_ASSET_TYPES.indexOf(type) !== -1;
 
         principalWrapper.classList.toggle('hidden', isSimpleType);
-        if (isSimpleType) {
+        if (isCumulative) {
+            amountLabel.textContent = '금액 (원)';
+            hint.textContent = '💡 이번에 추가/입금된 금액만 입력하세요. 자동으로 이전 잔액에 누적돼서, 자산 변동 내역에 이번 입력분만 따로 찍혀요.';
+        } else if (isSimpleType) {
             amountLabel.textContent = '현재 잔액 (원)';
             hint.textContent = '💡 "추가된 금액"이 아니라, 지금 통장/항목에 찍힌 전체 금액을 입력하세요. 같은 항목명으로 다시 등록하면 최신 잔액으로 업데이트돼요.';
         } else {
