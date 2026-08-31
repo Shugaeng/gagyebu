@@ -549,8 +549,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     <!-- TAB 5: 비중계산기 -->
     <section id="tab-allocator" class="tab-content hidden space-y-4">
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <h3 class="text-xs font-bold text-slate-800 mb-1 flex items-center space-x-1.5"><i data-lucide="scale" class="w-4 h-4 text-indigo-500"></i><span>보유 종목 (매매일지 자동 계산)</span></h3>
-            <p class="text-[10px] text-slate-400 mb-3">매매일지의 누적 매수-매도 금액을 그대로 가져와요. 여기서는 수정할 수 없어요.</p>
+            <h3 class="text-xs font-bold text-slate-800 mb-1 flex items-center space-x-1.5"><i data-lucide="scale" class="w-4 h-4 text-indigo-500"></i><span>보유 종목 (자산기록 기준 · 현재 평가금액)</span></h3>
+            <p class="text-[10px] text-slate-400 mb-3">자산기록 탭(연금저축/ISA/IRP)의 최신 평가금액을 그대로 가져와요. 여기서는 수정할 수 없어요.</p>
             <div id="allocator-stock-list" class="space-y-1.5"></div>
         </div>
 
@@ -832,7 +832,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v2.9.3'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
+    const APP_VERSION = 'v3.0.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
@@ -2962,14 +2962,18 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             </div>`;
     }
 
+    const INVESTMENT_ASSET_TYPES_FOR_ALLOCATOR = ['연금저축', '주식(ISA)', '주식(IRP)'];
+
     function getStockHoldingSums() {
-        // 매매일지 전체(모든 계좌, 전체 기간) 기준 누적 순매수 금액
+        // 비중계산기는 "지금 얼마짜리인가"가 중요하므로, 매매일지 원가가 아니라
+        // 자산기록 탭(연금저축/ISA/IRP)의 현재 평가금액 스냅샷을 종목명 기준으로 합산해서 가져온다.
+        const snapshot = getAssetSnapshotAsOf(new Date());
         const sums = {};
-        stocks.forEach(s => {
-            if (s.type === '매수') sums[s.item] = (sums[s.item] || 0) + s.amount;
-            else if (s.type === '매도') sums[s.item] = Math.max(0, (sums[s.item] || 0) - s.amount);
+        snapshot.forEach(a => {
+            if (INVESTMENT_ASSET_TYPES_FOR_ALLOCATOR.indexOf(a.type) === -1) return;
+            sums[a.name] = (sums[a.name] || 0) + a.amount;
         });
-        return Object.keys(sums).filter(item => sums[item] > 0).map(item => ({ name: item, amount: sums[item] }));
+        return Object.keys(sums).filter(name => sums[name] > 0).map(name => ({ name, amount: sums[name] }));
     }
 
     function startEditSafeAsset(id) {
