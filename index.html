@@ -57,6 +57,33 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen pb-safe">
 
+<div id="app-lock-overlay" class="hidden fixed inset-0 z-[200] bg-slate-900 flex flex-col items-center justify-center px-6">
+    <div class="text-4xl mb-3">🔒</div>
+    <div class="text-white text-sm font-bold mb-1">슈갱 부부 살림살이</div>
+    <div class="text-slate-400 text-xs mb-7">PIN 4자리를 입력해주세요</div>
+    <div class="flex gap-3 mb-6" id="app-lock-dots">
+        <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-500 transition-colors"></span>
+        <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-500 transition-colors"></span>
+        <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-500 transition-colors"></span>
+        <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-500 transition-colors"></span>
+    </div>
+    <div id="app-lock-error" class="text-rose-400 text-xs mb-4 h-4"></div>
+    <div class="grid grid-cols-3 gap-4" id="app-lock-keypad">
+        <button type="button" data-lock-key="1" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white text-xl font-semibold transition">1</button>
+        <button type="button" data-lock-key="2" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white text-xl font-semibold transition">2</button>
+        <button type="button" data-lock-key="3" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white text-xl font-semibold transition">3</button>
+        <button type="button" data-lock-key="4" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white text-xl font-semibold transition">4</button>
+        <button type="button" data-lock-key="5" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white text-xl font-semibold transition">5</button>
+        <button type="button" data-lock-key="6" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white text-xl font-semibold transition">6</button>
+        <button type="button" data-lock-key="7" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white text-xl font-semibold transition">7</button>
+        <button type="button" data-lock-key="8" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white text-xl font-semibold transition">8</button>
+        <button type="button" data-lock-key="9" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white text-xl font-semibold transition">9</button>
+        <div></div>
+        <button type="button" data-lock-key="0" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white text-xl font-semibold transition">0</button>
+        <button type="button" data-lock-key="del" class="w-16 h-16 rounded-full bg-slate-800/60 hover:bg-slate-700 active:bg-slate-600 text-white text-sm font-semibold transition">지움</button>
+    </div>
+</div>
+
 <div id="global-loader">
     <div class="spinner mb-4"></div>
     <div class="text-sm font-bold text-slate-700">클라우드 데이터 동기화 중...</div>
@@ -619,6 +646,20 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
     <!-- TAB 6: 설정 -->
     <section id="tab-settings" class="tab-content hidden space-y-4">
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
+            <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="lock" class="w-4 h-4 text-slate-600"></i><span>앱 잠금 (PIN)</span></h3>
+            <p id="app-lock-status-text" class="text-[11px] text-slate-400 leading-relaxed">현재 꺼져 있어요. 앱을 열 때 PIN을 요구하지 않아요.</p>
+            <div class="grid grid-cols-2 gap-2.5">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="app-lock-new-pin" placeholder="새 PIN 4자리" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-500">
+                <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="app-lock-confirm-pin" placeholder="PIN 확인" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-500">
+            </div>
+            <div class="flex gap-2">
+                <button type="button" id="app-lock-save-btn" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-2xs">PIN 설정하기</button>
+                <button type="button" id="app-lock-remove-btn" class="hidden px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium py-2.5 rounded-xl transition">잠금 해제</button>
+            </div>
+            <p class="text-[10px] text-slate-300 leading-relaxed">💡 이 기기에만 적용되는 화면 가리개예요 (개발자도구로는 우회 가능). 진짜 보안이 아니라, 지나가다 흘끗 봐도 금액이 바로 안 보이게 하는 용도예요.</p>
+        </div>
+
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
             <h3 class="text-xs font-bold text-slate-800 mb-3 flex items-center space-x-1.5"><i data-lucide="user-check" class="w-4 h-4 text-rose-500"></i><span>작성자 전환</span></h3>
             <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
@@ -832,12 +873,13 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v3.0.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
+    const APP_VERSION = 'v3.1.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
     };
     const SAFE_ASSET_STORAGE_KEY = 'cb_allocator_safe_assets'; // 비중계산기 안전자산은 기기별 로컬에만 저장 (클라우드 미동기화)
+    const APP_LOCK_PIN_KEY = 'cb_app_lock_pin'; // 앱 잠금 PIN도 기기별 로컬 전용 (클라우드 미동기화, 형식적인 화면 가리개용)
     const TARGET_RATIO_STORAGE_KEY = 'cb_allocator_target_ratios'; // 비중계산기 목표 비율도 기기별 로컬 전용
 
     // ---------- 상태 ----------
@@ -1456,7 +1498,88 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         render();
     };
 
+    // ---------- 앱 잠금 (형식적인 PIN 화면 가리개) ----------
+    let appLockInput = '';
+
+    function checkAppLockOnLoad() {
+        const pin = localStorage.getItem(APP_LOCK_PIN_KEY);
+        if (pin) document.getElementById('app-lock-overlay').classList.remove('hidden');
+    }
+
+    function updateAppLockDots() {
+        const dots = document.querySelectorAll('#app-lock-dots span');
+        dots.forEach((d, i) => {
+            const filled = i < appLockInput.length;
+            d.classList.toggle('bg-white', filled);
+            d.classList.toggle('border-white', filled);
+        });
+    }
+
+    function handleAppLockKey(key) {
+        const errorEl = document.getElementById('app-lock-error');
+        if (key === 'del') {
+            appLockInput = appLockInput.slice(0, -1);
+            errorEl.textContent = '';
+            updateAppLockDots();
+            return;
+        }
+        if (appLockInput.length >= 4) return;
+        appLockInput += key;
+        updateAppLockDots();
+        if (appLockInput.length === 4) {
+            const savedPin = localStorage.getItem(APP_LOCK_PIN_KEY);
+            if (appLockInput === savedPin) {
+                document.getElementById('app-lock-overlay').classList.add('hidden');
+                appLockInput = '';
+            } else {
+                errorEl.textContent = 'PIN이 틀렸어요';
+                setTimeout(() => { appLockInput = ''; updateAppLockDots(); }, 400);
+            }
+        }
+    }
+
+    function refreshAppLockSettingsUI() {
+        const pin = localStorage.getItem(APP_LOCK_PIN_KEY);
+        document.getElementById('app-lock-status-text').textContent = pin
+            ? '현재 켜져 있어요. 앱을 열 때마다 PIN 4자리를 입력해야 해요.'
+            : '현재 꺼져 있어요. 앱을 열 때 PIN을 요구하지 않아요.';
+        document.getElementById('app-lock-remove-btn').classList.toggle('hidden', !pin);
+        document.getElementById('app-lock-save-btn').textContent = pin ? 'PIN 변경하기' : 'PIN 설정하기';
+    }
+
+    function setupAppLockEventListeners() {
+        document.querySelectorAll('#app-lock-keypad [data-lock-key]').forEach(btn => {
+            btn.addEventListener('click', () => handleAppLockKey(btn.dataset.lockKey));
+        });
+        ['app-lock-new-pin', 'app-lock-confirm-pin'].forEach(id => {
+            document.getElementById(id).addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+            });
+        });
+        document.getElementById('app-lock-save-btn').addEventListener('click', () => {
+            const p1 = document.getElementById('app-lock-new-pin').value;
+            const p2 = document.getElementById('app-lock-confirm-pin').value;
+            if (!/^[0-9]{4}$/.test(p1)) { showAppToast('PIN 4자리를 입력해주세요.'); return; }
+            if (p1 !== p2) { showAppToast('PIN이 서로 달라요. 다시 확인해주세요.'); return; }
+            localStorage.setItem(APP_LOCK_PIN_KEY, p1);
+            document.getElementById('app-lock-new-pin').value = '';
+            document.getElementById('app-lock-confirm-pin').value = '';
+            refreshAppLockSettingsUI();
+            showAppToast('앱 잠금이 설정됐어요.');
+        });
+        document.getElementById('app-lock-remove-btn').addEventListener('click', () => {
+            showAppConfirm('앱 잠금을 해제할까요?', () => {
+                localStorage.removeItem(APP_LOCK_PIN_KEY);
+                refreshAppLockSettingsUI();
+                showAppToast('앱 잠금을 해제했어요.');
+            }, '해제');
+        });
+    }
+
     function init() {
+        checkAppLockOnLoad();
+        setupAppLockEventListeners();
+        refreshAppLockSettingsUI();
         safeCreateIcons();
         document.getElementById('app-version-text').textContent = APP_VERSION;
         setDefaultDate();
