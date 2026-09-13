@@ -2813,6 +2813,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             const visibleLogs = monthlyAssetLogs.slice(0, assetHistoryPageSize);
             visibleLogs.forEach(log => {
                 const isLiability = log.type === '대출/부채';
+                // 부채는 잔액이 클수록 순자산이 줄어드는 방향이라 부호를 반전해서, "순자산에 미치는 영향" 기준으로 +/-를 결정한다.
+                // (예: 예금 출금처럼 log.amount 자체가 음수로 입력된 경우에도 부호가 중복 표시되지 않도록)
+                const netEffect = isLiability ? -log.amount : log.amount;
+                const amountSign = netEffect < 0 ? '-' : '+';
+                const amountDisplay = Math.abs(netEffect).toLocaleString();
                 const badgeColor = ASSET_COLORS[log.type] || 'bg-slate-400';
                 const changeBadge = renderAssetChangeBadge(log);
                 const isTradeLinked = isTradeLinkedAsset(log);
@@ -2833,7 +2838,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                     </div>
                     <div class="flex flex-col items-end gap-1 shrink-0">
                         <span class="whitespace-nowrap">
-                            ${changeBadge}<span class="font-bold ${isLiability ? 'text-rose-600' : 'text-slate-900'}">${isLiability ? '-' : '+'}${log.amount.toLocaleString()}원</span>
+                            ${changeBadge}<span class="font-bold ${isLiability ? 'text-rose-600' : 'text-slate-900'}">${amountSign}${amountDisplay}원</span>
                         </span>
                         <div class="flex items-center">
                             ${isTradeLinked ? `<span class="text-[9px] text-slate-300 px-1">매매일지에서 수정</span>` : `
