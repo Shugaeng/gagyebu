@@ -94,7 +94,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
         <div>
             <h1 class="text-lg font-bold text-slate-900 leading-tight flex items-center gap-1.5">슈갱 부부 살림살이 ☁️</h1>
-            <p class="text-[11px] text-slate-400">행복하고 편안한 노후를 위해</p>
+            <p class="text-[11px] text-slate-400 flex items-center gap-1">행복하고 편안한 노후를 위해 <span id="app-version-text" class="text-slate-300">v1.0.0</span></p>
         </div>
         <span id="header-user-toggle" class="bg-rose-50 text-rose-600 border border-rose-100 px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 cursor-pointer hover:bg-rose-100 transition">
             <i data-lucide="user" class="w-3 h-3"></i>
@@ -718,7 +718,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         </div>
 
         <div class="text-center text-[10px] text-slate-300 pt-1 pb-2">
-            슈갱 부부 살림살이 · <span id="app-version-text">v1.0.0</span>
+            슈갱 부부 살림살이
         </div>
     </section>
 
@@ -873,7 +873,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v3.1.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 설정 탭에 반영됨
+    const APP_VERSION = 'v3.1.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
