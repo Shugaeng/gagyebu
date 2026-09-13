@@ -2816,10 +2816,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 // 부채는 잔액이 클수록 순자산이 줄어드는 방향이라 부호를 반전해서, "순자산에 미치는 영향" 기준으로 +/-를 결정한다.
                 // (예: 예금 출금처럼 log.amount 자체가 음수로 입력된 경우에도 부호가 중복 표시되지 않도록)
                 const netEffect = isLiability ? -log.amount : log.amount;
-                const amountSign = netEffect < 0 ? '-' : '+';
-                const amountDisplay = Math.abs(netEffect).toLocaleString();
                 const badgeColor = ASSET_COLORS[log.type] || 'bg-slate-400';
                 const changeBadge = renderAssetChangeBadge(log);
+                // 변동률(%) 배지가 이미 +/- 방향을 보여주므로, 그 옆 금액에는 부호를 중복 표시하지 않는다.
+                const amountSign = changeBadge ? '' : (netEffect < 0 ? '-' : '+');
+                const amountDisplay = Math.abs(netEffect).toLocaleString();
                 const isTradeLinked = isTradeLinkedAsset(log);
                 const el = document.createElement('div');
                 el.className = `py-2.5 flex items-start justify-between gap-2 hover:bg-slate-50 px-2 rounded-lg transition text-xs ${editingAssetId === log.id ? 'bg-amber-50/70 ring-1 ring-amber-200' : ''}`;
