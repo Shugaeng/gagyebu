@@ -652,18 +652,23 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
     <!-- TAB 6: 설정 -->
     <section id="tab-settings" class="tab-content hidden space-y-4">
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
-            <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="lock" class="w-4 h-4 text-slate-600"></i><span>앱 잠금 (PIN)</span></h3>
-            <p id="app-lock-status-text" class="text-[11px] text-slate-400 leading-relaxed">현재 꺼져 있어요. 앱을 열 때 PIN을 요구하지 않아요.</p>
-            <div class="grid grid-cols-2 gap-2.5">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="app-lock-new-pin" placeholder="새 PIN 4자리" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-500">
-                <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="app-lock-confirm-pin" placeholder="PIN 확인" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-500">
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <button type="button" id="app-lock-toggle" class="w-full flex items-center justify-between">
+                <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="lock" class="w-4 h-4 text-slate-600"></i><span>앱 잠금 (PIN)</span></h3>
+                <svg id="app-lock-chevron" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-slate-400 transition-transform" style="transform: rotate(-90deg)"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div id="app-lock-content" class="hidden space-y-3 mt-3">
+                <p id="app-lock-status-text" class="text-[11px] text-slate-400 leading-relaxed">현재 꺼져 있어요. 앱을 열 때 PIN을 요구하지 않아요.</p>
+                <div class="grid grid-cols-2 gap-2.5">
+                    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="app-lock-new-pin" placeholder="새 PIN 4자리" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-500">
+                    <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" id="app-lock-confirm-pin" placeholder="PIN 확인" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] text-center tracking-widest focus:outline-none focus:ring-2 focus:ring-slate-500">
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" id="app-lock-save-btn" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-2xs">PIN 설정하기</button>
+                    <button type="button" id="app-lock-remove-btn" class="hidden px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium py-2.5 rounded-xl transition">잠금 해제</button>
+                </div>
+                <p class="text-[10px] text-slate-300 leading-relaxed">💡 이 기기에만 적용되는 화면 가리개예요 (개발자도구로는 우회 가능). 진짜 보안이 아니라, 지나가다 흘끗 봐도 금액이 바로 안 보이게 하는 용도예요.</p>
             </div>
-            <div class="flex gap-2">
-                <button type="button" id="app-lock-save-btn" class="flex-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium py-2.5 rounded-xl transition shadow-2xs">PIN 설정하기</button>
-                <button type="button" id="app-lock-remove-btn" class="hidden px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium py-2.5 rounded-xl transition">잠금 해제</button>
-            </div>
-            <p class="text-[10px] text-slate-300 leading-relaxed">💡 이 기기에만 적용되는 화면 가리개예요 (개발자도구로는 우회 가능). 진짜 보안이 아니라, 지나가다 흘끗 봐도 금액이 바로 안 보이게 하는 용도예요.</p>
         </div>
 
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
@@ -879,7 +884,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v3.2.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
+    const APP_VERSION = 'v3.3.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
@@ -2078,6 +2083,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('data-mgmt-toggle').addEventListener('click', () => {
             const content = document.getElementById('data-mgmt-content');
             const chevron = document.getElementById('data-mgmt-chevron');
+            const collapsed = content.classList.toggle('hidden');
+            chevron.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+        });
+        document.getElementById('app-lock-toggle').addEventListener('click', () => {
+            const content = document.getElementById('app-lock-content');
+            const chevron = document.getElementById('app-lock-chevron');
             const collapsed = content.classList.toggle('hidden');
             chevron.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
         });
