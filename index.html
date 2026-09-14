@@ -263,14 +263,14 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         <div class="grid grid-cols-2 gap-3">
             <div class="bg-emerald-50/60 rounded-2xl p-3.5 border border-emerald-100">
                 <div class="text-[11px] text-emerald-700 font-medium mb-1">이번 달 총수입</div>
-                <div class="flex items-baseline gap-1.5 flex-wrap">
+                <div class="flex flex-col gap-0.5">
                     <div id="tx-tab-income" class="text-base font-bold text-emerald-600">0원</div>
                     <span id="tx-tab-income-change" class="text-[10px] font-semibold"></span>
                 </div>
             </div>
             <div class="bg-rose-50/60 rounded-2xl p-3.5 border border-rose-100">
                 <div class="text-[11px] text-rose-700 font-medium mb-1">이번 달 총지출</div>
-                <div class="flex items-baseline gap-1.5 flex-wrap">
+                <div class="flex flex-col gap-0.5">
                     <div id="tx-tab-expense" class="text-base font-bold text-rose-500">0원</div>
                     <span id="tx-tab-expense-change" class="text-[10px] font-semibold"></span>
                 </div>
@@ -879,7 +879,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v3.1.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
+    const APP_VERSION = 'v3.2.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
