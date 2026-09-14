@@ -197,11 +197,17 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             <div class="grid grid-cols-2 gap-3 pt-1">
                 <div class="bg-emerald-50/60 rounded-2xl p-3.5 border border-emerald-100">
                     <div class="text-[11px] text-emerald-700 font-medium mb-1">총 수입</div>
-                    <div id="dash-summary-income" class="text-base font-bold text-emerald-600">0원</div>
+                    <div class="flex flex-col gap-0.5">
+                        <div id="dash-summary-income" class="text-base font-bold text-emerald-600">0원</div>
+                        <span id="dash-summary-income-change" class="text-[10px] font-semibold"></span>
+                    </div>
                 </div>
                 <div class="bg-rose-50/60 rounded-2xl p-3.5 border border-rose-100">
                     <div class="text-[11px] text-rose-700 font-medium mb-1">총 지출</div>
-                    <div id="dash-summary-expense" class="text-base font-bold text-rose-500">0원</div>
+                    <div class="flex flex-col gap-0.5">
+                        <div id="dash-summary-expense" class="text-base font-bold text-rose-500">0원</div>
+                        <span id="dash-summary-expense-change" class="text-[10px] font-semibold"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -884,7 +890,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v3.3.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
+    const APP_VERSION = 'v3.4.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
@@ -2393,6 +2399,18 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
 
         document.getElementById('dash-summary-income').textContent = `${income.toLocaleString()}원`;
         document.getElementById('dash-summary-expense').textContent = `${expense.toLocaleString()}원`;
+
+        const prevSummaryDate = new Date(sYear, sMonth - 2, 1);
+        let prevIncome = 0, prevExpense = 0;
+        transactions.forEach(t => {
+            if (!t.date) return;
+            const d = new Date(t.date);
+            if (d.getFullYear() !== prevSummaryDate.getFullYear() || d.getMonth() !== prevSummaryDate.getMonth()) return;
+            if (t.type === 'income') prevIncome += t.amount;
+            else if (t.type === 'expense') prevExpense += t.amount;
+        });
+        renderMonthOverMonthChange('dash-summary-income-change', income, prevIncome, true);
+        renderMonthOverMonthChange('dash-summary-expense-change', expense, prevExpense, false);
     }
 
     function renderTrendsCharts() {
