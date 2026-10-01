@@ -698,26 +698,29 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             <div id="stock-items-container" class="flex flex-wrap gap-1.5 pt-2"></div>
         </div>
 
-        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
-            <div>
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <button type="button" id="category-mgmt-toggle" class="w-full flex items-center justify-between">
                 <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="tags" class="w-4 h-4 text-rose-500"></i><span>카테고리 관리</span></h3>
-                <p class="text-[11px] text-slate-400 leading-relaxed mt-1">소비/수입 탭에서 쓸 카테고리와 보조 카테고리를 직접 추가/삭제할 수 있어요.</p>
-            </div>
-            <div class="space-y-2">
-                <div class="text-[11px] font-semibold text-slate-500">지출 카테고리</div>
-                <form id="expense-category-form" class="flex gap-2">
-                    <input type="text" id="new-expense-category-name" placeholder="새 지출 카테고리명" required class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-rose-500">
-                    <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white text-xs font-medium px-4 py-2 rounded-xl h-[36px] transition">추가</button>
-                </form>
-                <div id="expense-categories-container" class="space-y-2 pt-1"></div>
-            </div>
-            <div class="space-y-2 pt-3 border-t border-slate-100">
-                <div class="text-[11px] font-semibold text-slate-500">수입 카테고리</div>
-                <form id="income-category-form" class="flex gap-2">
-                    <input type="text" id="new-income-category-name" placeholder="새 수입 카테고리명" required class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium px-4 py-2 rounded-xl h-[36px] transition">추가</button>
-                </form>
-                <div id="income-categories-container" class="flex flex-wrap gap-1.5 pt-1"></div>
+                <svg id="category-mgmt-chevron" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-slate-400 transition-transform" style="transform: rotate(-90deg)"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div id="category-mgmt-content" class="hidden space-y-4 mt-3">
+                <p class="text-[11px] text-slate-400 leading-relaxed">소비/수입 탭에서 쓸 카테고리와 보조 카테고리를 직접 추가/삭제할 수 있어요.</p>
+                <div class="space-y-2">
+                    <div class="text-[11px] font-semibold text-slate-500">지출 카테고리</div>
+                    <form id="expense-category-form" class="flex gap-2">
+                        <input type="text" id="new-expense-category-name" placeholder="새 지출 카테고리명" required class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-rose-500">
+                        <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white text-xs font-medium px-4 py-2 rounded-xl h-[36px] transition">추가</button>
+                    </form>
+                    <div id="expense-categories-container" class="space-y-2 pt-1"></div>
+                </div>
+                <div class="space-y-2 pt-3 border-t border-slate-100">
+                    <div class="text-[11px] font-semibold text-slate-500">수입 카테고리</div>
+                    <form id="income-category-form" class="flex gap-2">
+                        <input type="text" id="new-income-category-name" placeholder="새 수입 카테고리명" required class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium px-4 py-2 rounded-xl h-[36px] transition">추가</button>
+                    </form>
+                    <div id="income-categories-container" class="flex flex-wrap gap-1.5 pt-1"></div>
+                </div>
             </div>
         </div>
 
@@ -919,7 +922,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v3.6.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
+    const APP_VERSION = 'v3.6.1'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser',
@@ -2282,6 +2285,12 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('app-lock-toggle').addEventListener('click', () => {
             const content = document.getElementById('app-lock-content');
             const chevron = document.getElementById('app-lock-chevron');
+            const collapsed = content.classList.toggle('hidden');
+            chevron.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+        });
+        document.getElementById('category-mgmt-toggle').addEventListener('click', () => {
+            const content = document.getElementById('category-mgmt-content');
+            const chevron = document.getElementById('category-mgmt-chevron');
             const collapsed = content.classList.toggle('hidden');
             chevron.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
         });
