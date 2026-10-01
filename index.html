@@ -698,6 +698,29 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             <div id="stock-items-container" class="flex flex-wrap gap-1.5 pt-2"></div>
         </div>
 
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-4">
+            <div>
+                <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="tags" class="w-4 h-4 text-rose-500"></i><span>카테고리 관리</span></h3>
+                <p class="text-[11px] text-slate-400 leading-relaxed mt-1">소비/수입 탭에서 쓸 카테고리와 보조 카테고리를 직접 추가/삭제할 수 있어요.</p>
+            </div>
+            <div class="space-y-2">
+                <div class="text-[11px] font-semibold text-slate-500">지출 카테고리</div>
+                <form id="expense-category-form" class="flex gap-2">
+                    <input type="text" id="new-expense-category-name" placeholder="새 지출 카테고리명" required class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-rose-500">
+                    <button type="submit" class="bg-rose-500 hover:bg-rose-600 text-white text-xs font-medium px-4 py-2 rounded-xl h-[36px] transition">추가</button>
+                </form>
+                <div id="expense-categories-container" class="space-y-2 pt-1"></div>
+            </div>
+            <div class="space-y-2 pt-3 border-t border-slate-100">
+                <div class="text-[11px] font-semibold text-slate-500">수입 카테고리</div>
+                <form id="income-category-form" class="flex gap-2">
+                    <input type="text" id="new-income-category-name" placeholder="새 수입 카테고리명" required class="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs h-[36px] focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium px-4 py-2 rounded-xl h-[36px] transition">추가</button>
+                </form>
+                <div id="income-categories-container" class="flex flex-wrap gap-1.5 pt-1"></div>
+            </div>
+        </div>
+
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 space-y-3">
             <h3 class="text-xs font-bold text-slate-800 flex items-center space-x-1.5"><i data-lucide="target" class="w-4 h-4 text-rose-500"></i><span>자산 목표 및 D-Day 설정</span></h3>
             <form id="goal-form" class="space-y-3">
@@ -873,7 +896,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     }
 
     // ---------- 상수 ----------
-    const EXPENSE_SUB_CATEGORIES = {
+    // 카테고리/보조카테고리의 기본값. 설정 탭에서 추가/삭제한 내용은 아래 state(expenseCategories,
+    // incomeCategories)에 저장되며, 이 DEFAULT_*는 최초 실행 시 초기값으로만 쓰인다.
+    const DEFAULT_EXPENSE_CATEGORIES = {
         '식비': ['배달', '외식', '장보기', '카페/디저트', '기타'],
         '주거/통신': ['관리비', '월세', '가스/전기세', '인터넷/통신비', '기타'],
         '생활용품': ['생필품', '가구/가전', '의류/잡화', '뷰티/미용', '기타'],
@@ -883,7 +908,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '의료/건강': ['병원비', '약국', '영양제', '기타'],
         '기타지출': ['기타']
     };
-    const INCOME_CATEGORIES = ['월급', '보너스', '부수입', '금융소득', '기타수입'];
+    const DEFAULT_INCOME_CATEGORIES = ['월급', '보너스', '부수입', '금융소득', '기타수입'];
     // CDN(lucide) 로드 실패에도 항상 보이도록 자주 쓰는 아이콘은 인라인 SVG로 직접 정의한다.
     const PENCIL_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .622.622l4.353-1.321a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>';
     const TRASH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
@@ -894,10 +919,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         '예금/파킹통장': 'bg-cyan-500', '연금저축': 'bg-fuchsia-500', '이자': 'bg-lime-500', '배당금': 'bg-pink-500',
         '대출/부채': 'bg-red-600', '기타': 'bg-slate-400'
     };
-    const APP_VERSION = 'v3.5.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
+    const APP_VERSION = 'v3.6.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
-        stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser'
+        stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser',
+        expenseCategories: 'cl_expenseCategories', incomeCategories: 'cl_incomeCategories'
     };
     const SAFE_ASSET_STORAGE_KEY = 'cb_allocator_safe_assets'; // 비중계산기 안전자산은 기기별 로컬에만 저장 (클라우드 미동기화)
     const APP_LOCK_PIN_KEY = 'cb_app_lock_pin'; // 앱 잠금 PIN도 기기별 로컬 전용 (클라우드 미동기화, 형식적인 화면 가리개용)
@@ -936,6 +962,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     let assets = [];
     let stocks = [];
     let stockItems = ['테슬라', '애플', '엔비디아', '삼성전자', '국내고배당ETF'];
+    // 지출 카테고리(보조카테고리 포함)·수입 카테고리: 설정 탭에서 추가/삭제 가능 (클라우드 동기화됨)
+    let expenseCategories = JSON.parse(JSON.stringify(DEFAULT_EXPENSE_CATEGORIES));
+    let incomeCategories = [...DEFAULT_INCOME_CATEGORIES];
     let targetGoalAmount = 500000000;
     let targetGoalDate = '2028-05-31';
     let stockRolloverProcessedMonths = []; // 매매일지 -> 자산기록 자동 반영 완료된 'YYYY-MM' 목록
@@ -978,6 +1007,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         stocks = Array.isArray(data.stocks) ? data.stocks : [];
         stocks.forEach(s => { if (!s.account) s.account = '연금저축'; }); // 계좌 구분 도입 이전 기존 데이터 마이그레이션
         if (Array.isArray(data.stockItems) && data.stockItems.length) stockItems = data.stockItems;
+        if (data.expenseCategories && typeof data.expenseCategories === 'object') expenseCategories = data.expenseCategories;
+        if (Array.isArray(data.incomeCategories) && data.incomeCategories.length) incomeCategories = data.incomeCategories;
         if (data.targetGoalAmount) targetGoalAmount = data.targetGoalAmount;
         if (data.targetGoalDate) targetGoalDate = data.targetGoalDate;
         if (data.currentUser) currentUser = data.currentUser;
@@ -988,6 +1019,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('settings-user-display').textContent = currentUser;
         updateStockItemDropdown();
         renderStockItemsSettings();
+        updateCategoryOptions();
+        renderCategorySettings();
         applyingRemoteUpdate = false; // 롤오버가 saveAll()로 정상 저장되도록 플래그를 먼저 해제
         runStockRollover();
         render();
@@ -1028,7 +1061,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         if (!firebaseReady || !db || !syncCode) return;
         try {
             await db.collection('couples_budgets').doc(syncCode).set({
-                transactions, assets, stocks, stockItems, targetGoalAmount, targetGoalDate, currentUser, stockRolloverProcessedMonths,
+                transactions, assets, stocks, stockItems, expenseCategories, incomeCategories,
+                targetGoalAmount, targetGoalDate, currentUser, stockRolloverProcessedMonths,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
         } catch (e) {
@@ -1079,6 +1113,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             localStorage.setItem(STORAGE_KEYS.assets, JSON.stringify(assets));
             localStorage.setItem(STORAGE_KEYS.stocks, JSON.stringify(stocks));
             localStorage.setItem(STORAGE_KEYS.stockItems, JSON.stringify(stockItems));
+            localStorage.setItem(STORAGE_KEYS.expenseCategories, JSON.stringify(expenseCategories));
+            localStorage.setItem(STORAGE_KEYS.incomeCategories, JSON.stringify(incomeCategories));
             localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify({ targetGoalAmount, targetGoalDate }));
             localStorage.setItem(STORAGE_KEYS.currentUser, currentUser);
         } catch (err) {
@@ -1093,6 +1129,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             const rawAssets = localStorage.getItem(STORAGE_KEYS.assets);
             const rawStocks = localStorage.getItem(STORAGE_KEYS.stocks);
             const rawStockItems = localStorage.getItem(STORAGE_KEYS.stockItems);
+            const rawExpenseCategories = localStorage.getItem(STORAGE_KEYS.expenseCategories);
+            const rawIncomeCategories = localStorage.getItem(STORAGE_KEYS.incomeCategories);
             const rawSettings = localStorage.getItem(STORAGE_KEYS.settings);
             const rawUser = localStorage.getItem(STORAGE_KEYS.currentUser);
 
@@ -1102,6 +1140,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             assets = rawAssets ? JSON.parse(rawAssets) : [];
             stocks = rawStocks ? JSON.parse(rawStocks) : [];
             if (rawStockItems) stockItems = JSON.parse(rawStockItems);
+            if (rawExpenseCategories) expenseCategories = JSON.parse(rawExpenseCategories);
+            if (rawIncomeCategories) incomeCategories = JSON.parse(rawIncomeCategories);
             if (rawSettings) {
                 const s = JSON.parse(rawSettings);
                 if (s.targetGoalAmount) targetGoalAmount = s.targetGoalAmount;
@@ -1137,7 +1177,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     }
 
     function exportBackup() {
-        const payload = { transactions, assets, stocks, stockItems, targetGoalAmount, targetGoalDate, currentUser, stockRolloverProcessedMonths, exportedAt: new Date().toISOString() };
+        const payload = { transactions, assets, stocks, stockItems, expenseCategories, incomeCategories, targetGoalAmount, targetGoalDate, currentUser, stockRolloverProcessedMonths, exportedAt: new Date().toISOString() };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1161,12 +1201,16 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 assets = data.assets;
                 stocks = data.stocks;
                 if (Array.isArray(data.stockItems)) stockItems = data.stockItems;
+                if (data.expenseCategories && typeof data.expenseCategories === 'object') expenseCategories = data.expenseCategories;
+                if (Array.isArray(data.incomeCategories)) incomeCategories = data.incomeCategories;
                 if (data.targetGoalAmount) targetGoalAmount = data.targetGoalAmount;
                 if (data.targetGoalDate) targetGoalDate = data.targetGoalDate;
                 if (Array.isArray(data.stockRolloverProcessedMonths)) stockRolloverProcessedMonths = data.stockRolloverProcessedMonths;
                 saveAll();
                 updateStockItemDropdown();
                 renderStockItemsSettings();
+                updateCategoryOptions();
+                renderCategorySettings();
                 document.getElementById('setting-goal-amount').value = targetGoalAmount;
                 document.getElementById('setting-goal-date').value = targetGoalDate;
                 render();
@@ -1202,7 +1246,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             ['목표금액', targetGoalAmount],
             ['목표달성일', targetGoalDate],
             ['현재작성자', currentUser],
-            ['종목목록(쉼표구분)', stockItems.join(', ')]
+            ['종목목록(쉼표구분)', stockItems.join(', ')],
+            ['수입카테고리목록(쉼표구분)', incomeCategories.join(', ')],
+            ['지출카테고리목록(카테고리:보조1/보조2;...)', Object.keys(expenseCategories).map(cat => `${cat}:${(expenseCategories[cat] || []).join('/')}`).join('; ')]
         ];
 
         const wb = XLSX.utils.book_new();
@@ -1304,12 +1350,25 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                             else if (key === '목표달성일' && val) targetGoalDate = String(val);
                             else if (key === '현재작성자' && val) currentUser = String(val);
                             else if (key.indexOf('종목목록') === 0 && val) stockItems = String(val).split(',').map(s => s.trim()).filter(Boolean);
+                            else if (key.indexOf('수입카테고리목록') === 0 && val) incomeCategories = String(val).split(',').map(s => s.trim()).filter(Boolean);
+                            else if (key.indexOf('지출카테고리목록') === 0 && val) {
+                                const parsed = {};
+                                String(val).split(';').forEach(entry => {
+                                    const [cat, subsRaw] = entry.split(':');
+                                    const catName = (cat || '').trim();
+                                    if (!catName) return;
+                                    parsed[catName] = (subsRaw || '').split('/').map(s => s.trim()).filter(Boolean);
+                                });
+                                if (Object.keys(parsed).length) expenseCategories = parsed;
+                            }
                         });
                     }
 
                     saveAll();
                     updateStockItemDropdown();
                     renderStockItemsSettings();
+                    updateCategoryOptions();
+                    renderCategorySettings();
                     document.getElementById('setting-goal-amount').value = targetGoalAmount;
                     document.getElementById('setting-goal-date').value = targetGoalDate;
                     document.getElementById('current-user-name').textContent = currentUser;
@@ -1619,6 +1678,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         document.getElementById('settings-user-display').textContent = currentUser;
         updateStockItemDropdown();
         renderStockItemsSettings();
+        renderCategorySettings();
         render();
         safeCreateIcons();
 
@@ -1693,13 +1753,13 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         selectCategory.innerHTML = '';
         if (currentType === 'expense') {
             subCategoryWrapper.classList.remove('hidden');
-            Object.keys(EXPENSE_SUB_CATEGORIES).forEach(cat => {
+            Object.keys(expenseCategories).forEach(cat => {
                 const opt = document.createElement('option'); opt.value = cat; opt.textContent = cat; selectCategory.appendChild(opt);
             });
             updateSubCategoryOptions();
         } else {
             subCategoryWrapper.classList.add('hidden');
-            INCOME_CATEGORIES.forEach(cat => {
+            incomeCategories.forEach(cat => {
                 const opt = document.createElement('option'); opt.value = cat; opt.textContent = cat; selectCategory.appendChild(opt);
             });
         }
@@ -1712,7 +1772,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         selectSub.innerHTML = '';
         customInput.classList.add('hidden');
         customInput.value = '';
-        const subList = EXPENSE_SUB_CATEGORIES[selectedMain] || ['기타'];
+        const subList = expenseCategories[selectedMain] || ['기타'];
         subList.forEach(sub => {
             const opt = document.createElement('option'); opt.value = sub; opt.textContent = sub; selectSub.appendChild(opt);
         });
@@ -1745,6 +1805,110 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         stockItems.splice(index, 1);
         updateStockItemDropdown();
         renderStockItemsSettings();
+        saveAll();
+    }
+
+    // ---------- 카테고리 관리 (설정 탭) ----------
+    function renderCategorySettings() {
+        const expenseContainer = document.getElementById('expense-categories-container');
+        if (expenseContainer) {
+            expenseContainer.innerHTML = Object.keys(expenseCategories).map(cat => {
+                const subs = expenseCategories[cat] || [];
+                const subChips = subs.map(sub => `
+                    <span class="flex items-center gap-1 bg-white text-slate-600 text-[11px] px-2 py-0.5 rounded-full font-medium border border-slate-200">
+                        <span>${sub}</span><button type="button" data-remove-sub-category="${cat}|||${sub}" class="text-slate-300 hover:text-rose-500 ml-0.5">×</button>
+                    </span>`).join('');
+                return `
+                    <div class="bg-slate-50/60 rounded-xl p-3 border border-slate-100">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-slate-800">${cat}</span>
+                            <button type="button" data-remove-expense-category="${cat}" class="text-slate-300 hover:text-rose-500 transition p-1">${TRASH_SVG}</button>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 mb-2">${subChips || '<span class="text-[10px] text-slate-400">보조 카테고리 없음</span>'}</div>
+                        <form data-add-sub-category-form="${cat}" class="flex gap-1.5">
+                            <input type="text" placeholder="보조 카테고리 추가" class="flex-1 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-[11px] h-[30px] focus:outline-none focus:ring-2 focus:ring-rose-500">
+                            <button type="submit" class="bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-medium px-3 rounded-lg h-[30px] transition">추가</button>
+                        </form>
+                    </div>`;
+            }).join('') || '<div class="text-[11px] text-slate-400 text-center py-4">지출 카테고리가 없어요.</div>';
+
+            expenseContainer.querySelectorAll('[data-remove-expense-category]').forEach(btn => {
+                btn.addEventListener('click', () => removeExpenseCategory(btn.dataset.removeExpenseCategory));
+            });
+            expenseContainer.querySelectorAll('[data-remove-sub-category]').forEach(btn => {
+                const [cat, sub] = btn.dataset.removeSubCategory.split('|||');
+                btn.addEventListener('click', () => removeExpenseSubCategory(cat, sub));
+            });
+            expenseContainer.querySelectorAll('[data-add-sub-category-form]').forEach(form => {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const input = form.querySelector('input');
+                    addExpenseSubCategory(form.dataset.addSubCategoryForm, input.value.trim());
+                });
+            });
+        }
+
+        const incomeContainer = document.getElementById('income-categories-container');
+        if (incomeContainer) {
+            incomeContainer.innerHTML = '';
+            incomeCategories.forEach((cat, index) => {
+                const tag = document.createElement('div');
+                tag.className = "flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs px-2.5 py-1 rounded-full font-medium border border-emerald-100";
+                tag.innerHTML = `<span>${cat}</span><button type="button" data-remove-income-category="${index}" class="text-emerald-400 hover:text-emerald-700 ml-0.5">×</button>`;
+                incomeContainer.appendChild(tag);
+            });
+            incomeContainer.querySelectorAll('[data-remove-income-category]').forEach(btn => {
+                btn.addEventListener('click', () => removeIncomeCategory(parseInt(btn.dataset.removeIncomeCategory, 10)));
+            });
+        }
+    }
+
+    function addExpenseCategory(name) {
+        if (!name || expenseCategories[name]) return;
+        expenseCategories[name] = ['기타'];
+        updateCategoryOptions();
+        renderCategorySettings();
+        saveAll();
+    }
+
+    function removeExpenseCategory(cat) {
+        delete expenseCategories[cat];
+        updateCategoryOptions();
+        renderCategorySettings();
+        saveAll();
+    }
+
+    function addExpenseSubCategory(cat, sub) {
+        if (!sub || !expenseCategories[cat] || expenseCategories[cat].includes(sub)) return;
+        const subs = expenseCategories[cat];
+        // '기타'는 관례상 항상 마지막에 오도록 유지
+        const etcIndex = subs.indexOf('기타');
+        if (etcIndex !== -1) subs.splice(etcIndex, 0, sub); else subs.push(sub);
+        updateCategoryOptions();
+        renderCategorySettings();
+        saveAll();
+    }
+
+    function removeExpenseSubCategory(cat, sub) {
+        if (!expenseCategories[cat]) return;
+        expenseCategories[cat] = expenseCategories[cat].filter(s => s !== sub);
+        updateCategoryOptions();
+        renderCategorySettings();
+        saveAll();
+    }
+
+    function addIncomeCategory(name) {
+        if (!name || incomeCategories.includes(name)) return;
+        incomeCategories.push(name);
+        updateCategoryOptions();
+        renderCategorySettings();
+        saveAll();
+    }
+
+    function removeIncomeCategory(index) {
+        incomeCategories.splice(index, 1);
+        updateCategoryOptions();
+        renderCategorySettings();
         saveAll();
     }
 
@@ -1889,6 +2053,19 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                 document.getElementById('new-stock-item-name').value = '';
                 saveAll();
             }
+        });
+
+        document.getElementById('expense-category-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = document.getElementById('new-expense-category-name');
+            addExpenseCategory(input.value.trim());
+            input.value = '';
+        });
+        document.getElementById('income-category-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = document.getElementById('new-income-category-name');
+            addIncomeCategory(input.value.trim());
+            input.value = '';
         });
 
         document.getElementById('form-category').addEventListener('change', () => {
