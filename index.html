@@ -825,14 +825,15 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         </div>
         <p class="text-[11px] text-slate-400 mt-3 mb-1">다른 코드로 바꾸거나 새 기기를 연결하려면 아래에서 선택하세요.</p>
         <div class="sync-modal-tabs">
-            <button type="button" class="active" id="syncModeNew">새로 시작</button>
-            <button type="button" id="syncModeExisting">기존 코드 입력</button>
+            <button type="button" id="syncModeNew">새로 시작</button>
+            <button type="button" class="active" id="syncModeExisting">기존 코드 입력</button>
         </div>
-        <div class="sync-modal-section" id="syncSectionNew">
+        <div class="sync-modal-section hidden" id="syncSectionNew">
+            <p class="text-[11px] text-rose-500 font-medium mb-1.5">⚠ 이미 쓰던 가계부가 있다면 "기존 코드 입력"을 눌러주세요. 새로 시작하면 완전히 빈 가계부가 새로 만들어져요 (기존 데이터는 사라지지 않지만, 이 화면엔 더 이상 안 보여요).</p>
             <p class="text-[11px] text-slate-500 mb-1.5">이 코드를 배우자의 기기에도 똑같이 입력하면 데이터가 연결돼요.</p>
             <div class="generated-code" id="syncGeneratedCode">------</div>
         </div>
-        <div class="sync-modal-section hidden" id="syncSectionExisting">
+        <div class="sync-modal-section" id="syncSectionExisting">
             <input type="text" id="syncExistingCodeInput" placeholder="예: 123456" maxlength="6" inputmode="numeric" pattern="[0-9]*">
         </div>
         <div class="sync-modal-error" id="syncCodeError">코드는 숫자 6자리로 입력해주세요.</div>
@@ -940,7 +941,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     // 기본 자산구분 10개의 표시 순서. 설정 탭에서 새 계좌를 추가하면 그 계좌와 같은 이름의 자산구분이
     // '연금저축' 바로 뒤에 끼워져서 투자자산들끼리 묶여 보인다 (getAssetTypeOrder 참고).
     const BASE_ASSET_TYPES = ['부동산', '보증금', '예금/파킹통장', '주식(ISA)', '주식(IRP)', '연금저축', '이자', '배당금', '현금', '대출/부채'];
-    const APP_VERSION = 'v3.7.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
+    const APP_VERSION = 'v3.7.2'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser',
@@ -1133,7 +1134,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         } else {
             currentBox.classList.add('hidden');
         }
-        switchSyncModalMode('new');
+        // 기본 탭을 "기존 코드 입력"으로 둔다: 돌아오는 사용자가 새 기기에서 무심코 "새로 시작"으로
+        // 진행하면 완전히 빈 가계부가 새로 생성되고 기존 데이터가 안 보이게 되는 사고를 막기 위함
+        // (기존 데이터 자체가 삭제되는 건 아니지만, 겉으로는 "다 사라진 것"처럼 보임).
+        switchSyncModalMode('existing');
     }
     function closeSyncModal() { document.getElementById('syncModalBackdrop').classList.add('hidden'); }
     function switchSyncModalMode(mode) {
@@ -1167,44 +1171,52 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             localStorage.setItem(STORAGE_KEYS.currentUser, currentUser);
         } catch (err) {
             console.warn('저장 실패:', err);
+            showAppToast('⚠ 기기 저장 공간이 부족하거나 오류가 있어 이 기기에 저장이 안 됐을 수 있어요. (클라우드 연동 중이면 클라우드에는 반영됐을 수 있어요)');
         }
         if (!applyingRemoteUpdate) pushToCloud();
     }
 
+    // 핵심 데이터(거래/자산/매매일지)와 부가 설정(종목·계좌·카테고리 목록 등)을 분리해서 불러온다.
+    // 부가 설정 하나가 깨져 있어도(예: 손상된 값) 그것 때문에 전체를 "최초 실행"으로 오판해
+    // loadDummyData()가 실거래 데이터를 데모 데이터로 덮어써버리는 일이 없도록 하기 위함.
     function loadAll() {
+        const rawTx = localStorage.getItem(STORAGE_KEYS.transactions);
+        if (rawTx === null) return false; // 최초 실행 -> 데모 데이터 사용
+
         try {
-            const rawTx = localStorage.getItem(STORAGE_KEYS.transactions);
-            const rawAssets = localStorage.getItem(STORAGE_KEYS.assets);
-            const rawStocks = localStorage.getItem(STORAGE_KEYS.stocks);
-            const rawStockItems = localStorage.getItem(STORAGE_KEYS.stockItems);
-            const rawStockAccounts = localStorage.getItem(STORAGE_KEYS.stockAccounts);
-            const rawStockAccountAssetType = localStorage.getItem(STORAGE_KEYS.stockAccountAssetType);
-            const rawExpenseCategories = localStorage.getItem(STORAGE_KEYS.expenseCategories);
-            const rawIncomeCategories = localStorage.getItem(STORAGE_KEYS.incomeCategories);
-            const rawSettings = localStorage.getItem(STORAGE_KEYS.settings);
-            const rawUser = localStorage.getItem(STORAGE_KEYS.currentUser);
-
-            if (rawTx === null) return false; // 최초 실행 -> 데모 데이터 사용
-
             transactions = JSON.parse(rawTx) || [];
+        } catch (err) {
+            console.warn('거래내역 불러오기 실패, 데모 데이터로 대체:', err);
+            return false; // 핵심 데이터 자체가 깨졌을 때만 데모 데이터로 대체
+        }
+        try {
+            const rawAssets = localStorage.getItem(STORAGE_KEYS.assets);
             assets = rawAssets ? JSON.parse(rawAssets) : [];
+        } catch (err) { console.warn('자산기록 불러오기 실패:', err); assets = []; }
+        try {
+            const rawStocks = localStorage.getItem(STORAGE_KEYS.stocks);
             stocks = rawStocks ? JSON.parse(rawStocks) : [];
-            if (rawStockItems) stockItems = JSON.parse(rawStockItems);
-            if (rawStockAccounts) stockAccounts = JSON.parse(rawStockAccounts);
-            if (rawStockAccountAssetType) stockAccountAssetType = JSON.parse(rawStockAccountAssetType);
-            if (rawExpenseCategories) expenseCategories = JSON.parse(rawExpenseCategories);
-            if (rawIncomeCategories) incomeCategories = JSON.parse(rawIncomeCategories);
+        } catch (err) { console.warn('매매일지 불러오기 실패:', err); stocks = []; }
+
+        // 아래는 전부 설정값이라, 파싱에 실패해도 기본값을 유지한 채 넘어간다
+        // (위의 핵심 데이터는 이미 안전하게 불러왔으므로 여기서 실패해도 거래/자산/매매일지는 영향 없음)
+        try { const v = localStorage.getItem(STORAGE_KEYS.stockItems); if (v) stockItems = JSON.parse(v); } catch (err) { console.warn('종목 목록 불러오기 실패:', err); }
+        try { const v = localStorage.getItem(STORAGE_KEYS.stockAccounts); if (v) stockAccounts = JSON.parse(v); } catch (err) { console.warn('계좌 목록 불러오기 실패:', err); }
+        try { const v = localStorage.getItem(STORAGE_KEYS.stockAccountAssetType); if (v) stockAccountAssetType = JSON.parse(v); } catch (err) { console.warn('계좌-자산구분 매핑 불러오기 실패:', err); }
+        try { const v = localStorage.getItem(STORAGE_KEYS.expenseCategories); if (v) expenseCategories = JSON.parse(v); } catch (err) { console.warn('지출 카테고리 불러오기 실패:', err); }
+        try { const v = localStorage.getItem(STORAGE_KEYS.incomeCategories); if (v) incomeCategories = JSON.parse(v); } catch (err) { console.warn('수입 카테고리 불러오기 실패:', err); }
+        try {
+            const rawSettings = localStorage.getItem(STORAGE_KEYS.settings);
             if (rawSettings) {
                 const s = JSON.parse(rawSettings);
                 if (s.targetGoalAmount) targetGoalAmount = s.targetGoalAmount;
                 if (s.targetGoalDate) targetGoalDate = s.targetGoalDate;
             }
-            if (rawUser) currentUser = rawUser;
-            return true;
-        } catch (err) {
-            console.warn('불러오기 실패, 데모 데이터로 대체:', err);
-            return false;
-        }
+        } catch (err) { console.warn('목표 설정 불러오기 실패:', err); }
+
+        const rawUser = localStorage.getItem(STORAGE_KEYS.currentUser);
+        if (rawUser) currentUser = rawUser;
+        return true;
     }
 
     function loadDummyData() {
