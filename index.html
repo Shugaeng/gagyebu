@@ -653,7 +653,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         </div>
 
         <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-            <h3 class="text-xs font-bold text-slate-800 mb-1 flex items-center space-x-1.5"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i><span>전체 자산배분 비중</span></h3>
+            <h3 class="text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                <span class="flex items-center space-x-1.5"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i><span>전체 자산배분 비중</span></span>
+                <span class="text-[10px] font-medium text-slate-400">평가금 기준</span>
+            </h3>
             <div id="allocator-total-summary" class="text-[10px] text-slate-400 mb-3">보유 종목 0원 + 안전자산 0원 = 합계 0원</div>
             <div id="allocatorTreemap" class="relative w-full rounded-xl overflow-hidden" style="height: 260px;"></div>
             <div id="allocatorEmpty" class="hidden text-center text-slate-400 text-xs py-8">아직 계산할 데이터가 없어요. 매매일지에 보유 종목을 추가하거나, 안전자산을 입력해보세요.</div>
@@ -946,7 +949,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     // 기본 자산구분 10개의 표시 순서. 설정 탭에서 새 계좌를 추가하면 그 계좌와 같은 이름의 자산구분이
     // '연금저축' 바로 뒤에 끼워져서 투자자산들끼리 묶여 보인다 (getAssetTypeOrder 참고).
     const BASE_ASSET_TYPES = ['부동산', '보증금', '예금/파킹통장', '주식(ISA)', '주식(IRP)', '연금저축', '이자', '배당금', '현금', '대출/부채'];
-    const APP_VERSION = 'v3.8.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
+    const APP_VERSION = 'v3.8.1'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser',
