@@ -825,14 +825,15 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         </div>
         <p class="text-[11px] text-slate-400 mt-3 mb-1">다른 코드로 바꾸거나 새 기기를 연결하려면 아래에서 선택하세요.</p>
         <div class="sync-modal-tabs">
-            <button type="button" class="active" id="syncModeNew">새로 시작</button>
-            <button type="button" id="syncModeExisting">기존 코드 입력</button>
+            <button type="button" id="syncModeNew">새로 시작</button>
+            <button type="button" class="active" id="syncModeExisting">기존 코드 입력</button>
         </div>
-        <div class="sync-modal-section" id="syncSectionNew">
+        <div class="sync-modal-section hidden" id="syncSectionNew">
+            <p class="text-[11px] text-rose-500 font-medium mb-1.5">⚠ 이미 쓰던 가계부가 있다면 "기존 코드 입력"을 눌러주세요. 새로 시작하면 완전히 빈 가계부가 새로 만들어져요 (기존 데이터는 사라지지 않지만, 이 화면엔 더 이상 안 보여요).</p>
             <p class="text-[11px] text-slate-500 mb-1.5">이 코드를 배우자의 기기에도 똑같이 입력하면 데이터가 연결돼요.</p>
             <div class="generated-code" id="syncGeneratedCode">------</div>
         </div>
-        <div class="sync-modal-section hidden" id="syncSectionExisting">
+        <div class="sync-modal-section" id="syncSectionExisting">
             <input type="text" id="syncExistingCodeInput" placeholder="예: 123456" maxlength="6" inputmode="numeric" pattern="[0-9]*">
         </div>
         <div class="sync-modal-error" id="syncCodeError">코드는 숫자 6자리로 입력해주세요.</div>
@@ -940,7 +941,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     // 기본 자산구분 10개의 표시 순서. 설정 탭에서 새 계좌를 추가하면 그 계좌와 같은 이름의 자산구분이
     // '연금저축' 바로 뒤에 끼워져서 투자자산들끼리 묶여 보인다 (getAssetTypeOrder 참고).
     const BASE_ASSET_TYPES = ['부동산', '보증금', '예금/파킹통장', '주식(ISA)', '주식(IRP)', '연금저축', '이자', '배당금', '현금', '대출/부채'];
-    const APP_VERSION = 'v3.7.1'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
+    const APP_VERSION = 'v3.7.2'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser',
@@ -1133,7 +1134,10 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         } else {
             currentBox.classList.add('hidden');
         }
-        switchSyncModalMode('new');
+        // 기본 탭을 "기존 코드 입력"으로 둔다: 돌아오는 사용자가 새 기기에서 무심코 "새로 시작"으로
+        // 진행하면 완전히 빈 가계부가 새로 생성되고 기존 데이터가 안 보이게 되는 사고를 막기 위함
+        // (기존 데이터 자체가 삭제되는 건 아니지만, 겉으로는 "다 사라진 것"처럼 보임).
+        switchSyncModalMode('existing');
     }
     function closeSyncModal() { document.getElementById('syncModalBackdrop').classList.add('hidden'); }
     function switchSyncModalMode(mode) {
