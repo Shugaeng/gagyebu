@@ -773,6 +773,11 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
                         <input type="file" id="import-data-input" accept="application/json" class="hidden">
                     </label>
                 </div>
+                <div id="backup-reminder" class="pt-0.5"></div>
+                <div class="pt-2 border-t border-slate-100">
+                    <div class="text-[11px] font-semibold text-slate-500 mb-1.5 flex items-center gap-1"><i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i>비상 자동 백업</div>
+                    <div id="safety-backup-info"></div>
+                </div>
                 <div class="pt-1">
                     <button id="clear-data-btn" class="text-xs text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3.5 py-1.5 rounded-lg font-medium transition">초기화 및 데모 데이터 재설정</button>
                 </div>
@@ -941,7 +946,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     // 기본 자산구분 10개의 표시 순서. 설정 탭에서 새 계좌를 추가하면 그 계좌와 같은 이름의 자산구분이
     // '연금저축' 바로 뒤에 끼워져서 투자자산들끼리 묶여 보인다 (getAssetTypeOrder 참고).
     const BASE_ASSET_TYPES = ['부동산', '보증금', '예금/파킹통장', '주식(ISA)', '주식(IRP)', '연금저축', '이자', '배당금', '현금', '대출/부채'];
-    const APP_VERSION = 'v3.7.2'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
+    const APP_VERSION = 'v3.8.0'; // 기능 추가/수정할 때마다 여기 숫자만 올려주면 상단 헤더에 반영됨
     const STORAGE_KEYS = {
         transactions: 'cl_transactions', assets: 'cl_assets', stocks: 'cl_stocks',
         stockItems: 'cl_stockItems', settings: 'cl_settings', currentUser: 'cl_currentUser',
@@ -951,6 +956,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
     const SAFE_ASSET_STORAGE_KEY = 'cb_allocator_safe_assets'; // 비중계산기 안전자산은 기기별 로컬에만 저장 (클라우드 미동기화)
     const APP_LOCK_PIN_KEY = 'cb_app_lock_pin'; // 앱 잠금 PIN도 기기별 로컬 전용 (클라우드 미동기화, 형식적인 화면 가리개용)
     const TARGET_RATIO_STORAGE_KEY = 'cb_allocator_target_ratios'; // 비중계산기 목표 비율도 기기별 로컬 전용
+    const SAFETY_BACKUP_KEY = 'cb_safety_backup'; // loadDummyData()로 데이터가 통째로 리셋되기 직전 상태의 비상 백업 (기기별 로컬 전용)
+    const LAST_EXPORT_AT_KEY = 'cb_last_export_at'; // 마지막으로 JSON 백업을 내보낸 시각 (기기별 로컬 전용, 백업 독려용)
 
     // ---------- 상태 ----------
     let currentTab = 'dashboard';
@@ -1091,6 +1098,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
             } else if (firstSnapshot) {
                 // 새 코드: 이 기기의 데모 데이터를 클라우드에 최초 저장
                 loadDummyData();
+                renderSafetyBackupInfo();
             }
             firstSnapshot = false;
             hideGlobalLoader();
@@ -1219,7 +1227,24 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         return true;
     }
 
+    // loadDummyData()가 지금 메모리에 있는 실데이터를 지우기 직전, 비상 복구용으로 따로 저장해둔다.
+    // (동기화 코드를 잘못 연결했거나, "초기화" 버튼을 실수로 눌렀을 때를 대비한 안전장치)
+    function backupBeforeReset() {
+        if (!transactions.length && !assets.length && !stocks.length) return; // 지킬 데이터가 없으면 스킵
+        try {
+            const snapshot = {
+                savedAt: new Date().toISOString(),
+                transactions, assets, stocks, stockItems, stockAccounts, stockAccountAssetType,
+                expenseCategories, incomeCategories, targetGoalAmount, targetGoalDate
+            };
+            localStorage.setItem(SAFETY_BACKUP_KEY, JSON.stringify(snapshot));
+        } catch (err) {
+            console.warn('비상 백업 저장 실패:', err);
+        }
+    }
+
     function loadDummyData() {
+        backupBeforeReset();
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -1240,6 +1265,63 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         saveAll();
     }
 
+    function renderSafetyBackupInfo() {
+        const el = document.getElementById('safety-backup-info');
+        if (!el) return;
+        const raw = localStorage.getItem(SAFETY_BACKUP_KEY);
+        if (!raw) {
+            el.innerHTML = `<p class="text-[11px] text-slate-400">아직 자동 백업이 없어요. 데이터가 리셋될 뻔한 적이 있으면 여기 생겨요.</p>`;
+            return;
+        }
+        try {
+            const snap = JSON.parse(raw);
+            const savedAtText = snap.savedAt ? new Date(snap.savedAt).toLocaleString('ko-KR') : '알 수 없음';
+            el.innerHTML = `
+                <p class="text-[11px] text-slate-500 leading-relaxed">초기화/리셋이 일어나기 직전 상태가 자동으로 저장돼요.<br>
+                    가장 최근 백업: <b class="text-slate-700">${savedAtText}</b>
+                    (거래 ${(snap.transactions || []).length}건 · 자산기록 ${(snap.assets || []).length}건 · 매매일지 ${(snap.stocks || []).length}건)</p>
+                <button type="button" id="restore-safety-backup-btn" class="mt-2 text-xs text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-lg font-medium transition">이 백업으로 복원하기</button>`;
+            document.getElementById('restore-safety-backup-btn').addEventListener('click', () => {
+                showAppConfirm('지금 화면의 데이터를 이 백업 시점으로 되돌릴까요? (되돌리기 전 지금 상태도 백업에 남으니 다시 무를 수 있어요)', restoreSafetyBackup, '복원');
+            });
+        } catch (err) {
+            el.innerHTML = `<p class="text-[11px] text-rose-400">백업 데이터를 읽을 수 없어요.</p>`;
+        }
+    }
+
+    function restoreSafetyBackup() {
+        const raw = localStorage.getItem(SAFETY_BACKUP_KEY);
+        if (!raw) return;
+        try {
+            const snap = JSON.parse(raw);
+            backupBeforeReset(); // 복원 전 현재 상태도 백업해둬서, 복원 자체를 다시 무를 수 있게 함
+            if (Array.isArray(snap.transactions)) transactions = snap.transactions;
+            if (Array.isArray(snap.assets)) assets = snap.assets;
+            if (Array.isArray(snap.stocks)) stocks = snap.stocks;
+            if (Array.isArray(snap.stockItems)) stockItems = snap.stockItems;
+            if (Array.isArray(snap.stockAccounts) && snap.stockAccounts.length) stockAccounts = snap.stockAccounts;
+            if (snap.stockAccountAssetType && typeof snap.stockAccountAssetType === 'object') stockAccountAssetType = snap.stockAccountAssetType;
+            if (snap.expenseCategories && typeof snap.expenseCategories === 'object') expenseCategories = snap.expenseCategories;
+            if (Array.isArray(snap.incomeCategories) && snap.incomeCategories.length) incomeCategories = snap.incomeCategories;
+            if (snap.targetGoalAmount) targetGoalAmount = snap.targetGoalAmount;
+            if (snap.targetGoalDate) targetGoalDate = snap.targetGoalDate;
+            saveAll();
+            updateStockItemDropdown();
+            renderStockItemsSettings();
+            syncAccountDependentUI();
+            renderStockAccountsSettings();
+            updateCategoryOptions();
+            renderCategorySettings();
+            document.getElementById('setting-goal-amount').value = targetGoalAmount;
+            document.getElementById('setting-goal-date').value = targetGoalDate;
+            renderSafetyBackupInfo();
+            render();
+            showAppToast('백업에서 복원했어요.');
+        } catch (err) {
+            showAppToast('백업 복원에 실패했어요: ' + err.message);
+        }
+    }
+
     function exportBackup() {
         const payload = { transactions, assets, stocks, stockItems, stockAccounts, stockAccountAssetType, expenseCategories, incomeCategories, targetGoalAmount, targetGoalDate, currentUser, stockRolloverProcessedMonths, exportedAt: new Date().toISOString() };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -1251,6 +1333,27 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        try { localStorage.setItem(LAST_EXPORT_AT_KEY, new Date().toISOString()); } catch (err) { /* 무시: 독려용 기록일 뿐 */ }
+        renderBackupReminder();
+    }
+
+    // 클라우드 동기화와 별개로, 기기/계정 문제로 아예 접근이 끊기는 경우를 대비해
+    // 주기적으로 JSON 백업을 직접 내려받아두길 가볍게 독려한다.
+    function renderBackupReminder() {
+        const el = document.getElementById('backup-reminder');
+        if (!el) return;
+        const raw = localStorage.getItem(LAST_EXPORT_AT_KEY);
+        if (!raw) {
+            el.innerHTML = `<p class="text-[11px] text-amber-600">💡 아직 JSON 백업을 받아본 적이 없어요. 가끔 "JSON 백업 내보내기"로 파일을 받아두면 더 안전해요.</p>`;
+            return;
+        }
+        const last = new Date(raw);
+        const days = Math.floor((Date.now() - last.getTime()) / 86400000);
+        if (days >= 30) {
+            el.innerHTML = `<p class="text-[11px] text-amber-600">💡 마지막 JSON 백업이 ${days}일 전이에요. 한 번 더 받아두는 걸 추천해요.</p>`;
+        } else {
+            el.innerHTML = `<p class="text-[11px] text-slate-400">마지막 JSON 백업: ${last.toLocaleDateString('ko-KR')} (${days === 0 ? '오늘' : days + '일 전'})</p>`;
+        }
     }
 
     function importBackup(file) {
@@ -1759,6 +1862,8 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         syncAccountDependentUI();
         renderStockAccountsSettings();
         renderCategorySettings();
+        renderSafetyBackupInfo();
+        renderBackupReminder();
         render();
         safeCreateIcons();
 
@@ -1771,6 +1876,7 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         } else {
             const hadStoredData = loadAll();
             if (!hadStoredData) loadDummyData();
+            renderSafetyBackupInfo();
             runStockRollover();
             updateSyncBadge('local');
             hideGlobalLoader();
@@ -2431,8 +2537,9 @@ input[type="date"] { appearance:none; -webkit-appearance:none; min-height:36px; 
         });
 
         document.getElementById('clear-data-btn').addEventListener('click', () => {
-            showAppConfirm("모든 데이터를 초기 설정으로 되돌리시겠습니까?", () => {
+            showAppConfirm("모든 데이터를 초기 설정으로 되돌리시겠습니까? (지금 상태는 '비상 자동 백업'에 남아서 나중에 복원할 수 있어요)", () => {
                 loadDummyData();
+                renderSafetyBackupInfo();
                 render();
             }, '초기화');
         });
